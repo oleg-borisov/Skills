@@ -1,0 +1,2 @@
+display_name: Deferred Review
+short_description: Обработка отложенных MINOR-замечаний и пунктов «требует внимания человека» после rr-loop.
