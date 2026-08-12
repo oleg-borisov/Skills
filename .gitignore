@@ -13,3 +13,4 @@ $RECYCLE.BIN/
 
 ### Codex CLI
 .codex/
+.agents/

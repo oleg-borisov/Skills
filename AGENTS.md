@@ -27,9 +27,11 @@
 ```
 
 Скрипт создаёт:
-- `~\.codex\agents` → `.codex\agents` (агенты Codex CLI)
-- `~\.codex\skills\deferred-review` → `skills\deferred-review` (скилл для Codex CLI)
-- `~\.agents\skills\deferred-review` → `skills\deferred-review` (скилл для opencode и других инструментов)
+- `~\.codex\agents` → `.codex\agents` (custom agents Codex CLI, user-уровень)
+- `~\.agents\skills\deferred-review` → `skills\deferred-review` (скилл Codex CLI, user-уровень)
+- `.\agents\skills` → `skills` (скиллы Codex CLI, уровень репозитория)
+
+Codex сканирует скиллы в `~/.agents/skills` и `.agents/skills` (от CWD до корня репозитория). Каталог `~/.codex/skills` НЕ сканируется. Скиллы также можно вызвать в сессии явно: `/skills` или `$deferred-review`. Custom agents живут в `~/.codex/agents` и `.codex/agents` — их спавнит главная модель по имени.
 
 Повторный запуск безопасен: уже существующие junction-ы пересоздаются.
 
