@@ -10,7 +10,3 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
-
-### Codex CLI
-.codex/
-.agents/
