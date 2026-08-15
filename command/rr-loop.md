@@ -1,5 +1,5 @@
 ---
-description: Автономный цикл implement→review→revise по файлу спецификации, до вердикта APPROVE. Передай путь к спецификации.
+description: Полный цикл implement→review→revise до решения о завершении в Фазе 8. APPROVE открывает интерактивный хвост, а не завершает workflow.
 agent: rr-loop
 ---
-Запусти цикл review–revise. Спецификация: $ARGUMENTS
+Запусти `rr-loop` в режиме FRESH как primary текущего диалога и выполни все фазы до terminal gate. Спецификация: $ARGUMENTS
