@@ -37,7 +37,6 @@ skills/rr-loop/SKILL.md — единственный source of truth controller.
 - копирует flat Markdown agents и command в Claude Code/OpenCode;
 - сохраняет ~/.codex/agents как junction на .codex/agents;
 - копирует TOML leaf-agents и подключает skill во все Orca/codex-accounts/*/home;
-- удаляет только известные устаревшие agent-файлы reviewer и custom-agent rr-loop.
 
 File symlinks не используются: целевые hosts их не подхватывают. Сторонние файлы в пользовательских каталогах сохраняются.
 

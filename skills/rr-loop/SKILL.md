@@ -15,7 +15,7 @@ disable-model-invocation: true
 - Каждый worker получает только spec paths, fixed points, finding IDs и свой phase contract. Не вставляй в prompt полную историю цикла.
 - Worker, который меняет код, коммитит свою фазу. Controller проверяет новый HEAD.
 - Review начинается только после green verifier gate. Reviewers не запускают checks.
-- QUALITY = GREEN: активных BLOCKER/MAJOR нет, final gate green, final Spec audit завершён.
+- QUALITY = GREEN: активных BLOCKER/MAJOR нет, final gate green, initial и обязательные delta-review завершены.
 - Итоговый отчёт и cleanup ledger разрешены только при terminal status.
 
 ## Leaf-agents
@@ -123,12 +123,11 @@ MINOR можно исправить попутно только если в то
 ### 8. Final gate and completion
 
 1. Запусти fresh verifier в final: compile affected source sets, targeted tests, один final relevant full suite.
-2. Запусти fresh spec-reviewer по полному BASE...HEAD.
-3. standards-reviewer в final запускай только если после последнего Standards pass исправлялись Standards findings.
-4. Проверь ledger: нет PENDING, FIX_NOW, HUMAN_ATTENTION и active critical findings.
-5. Установи QUALITY = GREEN.
-6. Установи WORKFLOW_STATUS = WAITING_FOR_HUMAN, запиши completion decision как pending_action, сделай checkpoint и спроси, выполнять ли merge, tracker completion и cleanup current worktree. Без явного подтверждения не выполняй эти действия.
-7. После решения установи WORKFLOW_STATUS = COMPLETED, сформируй итоговый отчёт, опубликуй его в tracker при наличии task ID и удали ledger.
+2. Не запускай review в финале: каждый commit после initial Review уже прошёл delta-review только по originating axes; verifier не меняет HEAD.
+3. Проверь ledger: нет PENDING, FIX_NOW, HUMAN_ATTENTION и active critical findings.
+4. Установи QUALITY = GREEN.
+5. Установи WORKFLOW_STATUS = WAITING_FOR_HUMAN, запиши completion decision как pending_action, сделай checkpoint и спроси, выполнять ли merge, tracker completion и cleanup current worktree. Без явного подтверждения не выполняй эти действия.
+6. После решения установи WORKFLOW_STATUS = COMPLETED, сформируй итоговый отчёт, опубликуй его в tracker при наличии task ID и удали ledger.
 
 ## Conflicts
 
