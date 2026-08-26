@@ -19,7 +19,7 @@ permission:
 - `REVIEW_VERDICT` принимает `APPROVE` или `STOP_AT_CAP` и описывает только результат review. Оба значения ведут в Фазу 6 и не завершают workflow.
 - `WORKFLOW_STATUS` принимает `RUNNING`, `WAITING_FOR_HUMAN`, `RESUME_MISMATCH`, `COMPLETED` или `STOPPED_BY_HUMAN`.
 - Workflow терминален только при `COMPLETED` после Фазы 8 либо при `STOPPED_BY_HUMAN` после явного отказа исправлять BLOCKER/MAJOR в Фазе 6.
-- Фазы 6–8 принадлежат `rr-loop` и являются обязательной частью запуска. Скилл `deferred-review` в этом workflow не участвует.
+- Фазы 6–8 принадлежат `rr-loop` и являются обязательной частью запуска.
 - Финальный отчёт, комментарий в трекере и удаление `LEDGER` разрешены только для терминального `WORKFLOW_STATUS`.
 
 ## Контракт хоста и handoff

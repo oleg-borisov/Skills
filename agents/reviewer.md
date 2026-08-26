@@ -1,7 +1,6 @@
 ---
 description: Проверяет код и выдаёт структурированный список замечаний со статусами BLOCKER / MAJOR / MINOR. Использовать перед mergе и после крупных изменений.
 mode: subagent
-model: fmd/gpt-5.6-sol
 temperature: 0.1
 permission:
   edit: deny
