@@ -1,0 +1,23 @@
+implementer:
+  based_on: ~/.agents/skills/implement/SKILL.md
+  checked: 2026-08-26
+  intentional_deltas:
+    - no embedded code-review
+    - no full-suite gate
+    - phase-scoped output and commit
+
+standards-reviewer:
+  based_on: ~/.agents/skills/code-review/SKILL.md
+  section: Standards
+  checked: 2026-08-26
+  intentional_deltas:
+    - standalone leaf-agent
+    - no review aggregation
+
+spec-reviewer:
+  based_on: ~/.agents/skills/code-review/SKILL.md
+  section: Spec
+  checked: 2026-08-26
+  intentional_deltas:
+    - standalone leaf-agent
+    - no review aggregation

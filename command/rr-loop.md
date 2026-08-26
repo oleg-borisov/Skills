@@ -1,5 +1,5 @@
 ---
-description: Полный цикл implement→review→revise до решения о завершении в Фазе 8. APPROVE открывает интерактивный хвост, а не завершает workflow.
-agent: rr-loop
+description: Primary workflow implement → verify → review → revise с durable ledger и human gates.
 ---
-Запусти `rr-loop` в режиме FRESH как primary текущего диалога и выполни все фазы до terminal gate. Спецификация: $ARGUMENTS
+
+Оставаясь primary текущего диалога, используй установленный user-invoked skill `rr-loop` с входом: $ARGUMENTS. Не запускай отдельного controller-agent.

@@ -1,7 +1,13 @@
 # Skills
 
-Переиспользуемые агентные активы: агенты `reviewer` / `reviser` / `rr-loop`,
-слаш-команда `/rr-loop`, скилл `deferred-review`. Общие для Claude Code, opencode и Codex CLI.
+Переиспользуемые agent assets для Claude Code, OpenCode и Codex:
 
-- **Формат и зависимости** — см. `AGENTS.md`.
-- **Подключение к Codex CLI** — `.\link-codex.ps1` (junction-ы вместо копий).
+- primary workflow /rr-loop и $rr-loop;
+- leaf-agents implementer, verifier, standards-reviewer, spec-reviewer, reviser;
+- skill rr-loop как source of truth controller и Markdown leaf-agents как source of truth для генерируемых Codex TOML profiles.
+
+Синхронизация локальных окружений:
+
+    .\link-codex.ps1
+
+Формат, зависимости и целевые каталоги описаны в AGENTS.md.
