@@ -32,7 +32,7 @@ disable-model-invocation: true
 
 LEDGER = .scratch/rr-loop/<task-or-branch>-<BASE>.md. Храни:
 
-- spec paths, task ID, branch, BASE, HEAD;
+- spec paths, task ID, branch, BASE, HEAD, merge_target_branch и последний интегрированный commit target-ветки;
 - current_phase, WORKFLOW_STATUS, QUALITY;
 - review iteration, last_reviewed_head по каждой оси;
 - queued user_directives;
@@ -128,8 +128,24 @@ MINOR можно исправить попутно только если в то
 4. При green gate не запускай review: каждый commit после initial Review уже прошёл обязательный delta-review, а verifier не меняет HEAD.
 5. Проверь ledger: нет PENDING, FIX_NOW, HUMAN_ATTENTION и active critical findings.
 6. Установи QUALITY = GREEN.
-7. Установи WORKFLOW_STATUS = WAITING_FOR_HUMAN, запиши completion decision как pending_action, сделай checkpoint и спроси, выполнять ли merge, tracker completion и cleanup current worktree. Без явного подтверждения не выполняй эти действия.
-8. После решения установи WORKFLOW_STATUS = COMPLETED, сформируй итоговый отчёт, опубликуй его в tracker при наличии task ID и удали ledger.
+7. Установи WORKFLOW_STATUS = WAITING_FOR_HUMAN, запиши completion decision как pending_action, сделай checkpoint и спроси, выполнять ли merge в явно названную parent-ветку, tracker completion и cleanup current worktree. Сохрани `merge_target_branch` в ledger. Без явного подтверждения не выполняй эти действия.
+8. После подтверждения выполни фазу Merge reconciliation.
+9. Только после успешного fast-forward merge установи WORKFLOW_STATUS = COMPLETED, сформируй итоговый отчёт, опубликуй его в tracker при наличии task ID и удали ledger.
+
+### 9. Merge reconciliation
+
+Эта фаза выполняется только для подтверждённого `merge_target_branch`; task-ветка и target-ветка должны быть явно различны. Перед переключениями проверь чистоту worktree, исключая только учтённый в ledger файл самого ledger. Чужие или неучтённые изменения — `HUMAN_ATTENTION`; не прячь, не stash и не удаляй их.
+
+Повторяй цикл до успешного final merge:
+
+1. Переключись на `merge_target_branch` и выполни `git pull --ff-only`. Если pull не проходит, сохрани точный вывод в ledger и остановись в `HUMAN_ATTENTION`.
+2. Запиши полученный HEAD как `parent_tip`, переключись на task-ветку и выполни `git merge <parent_tip>`.
+3. При конфликте запусти fresh reviser только с конфликтующими файлами, `parent_tip` и указанием разрешить текущий merge без потери ни одного из двух изменений. Он разрешает конфликт, выполняет релевантные targeted checks и коммитит merge resolution. Затем запусти fresh verifier для изменённых конфликтом областей и delta-review обеих осей. Red gate или active critical finding возвращает в обычный repair path; после green gate и закрытых findings продолжи этот цикл с шага 1, так как parent-ветка могла сдвинуться.
+4. При merge без конфликта снова переключись на `merge_target_branch` и непосредственно перед final merge выполни `git pull --ff-only`.
+5. Если HEAD target-ветки отличается от `parent_tip`, вернись к шагу 2: task-ветка должна включать именно свежий tip parent-ветки.
+6. Если tips совпадают, выполни `git merge --ff-only <task-branch>` в `merge_target_branch`. Это единственный final merge. Если он не fast-forward, не создавай merge commit: checkpoint, зафиксируй фактические refs и начни цикл заново с шага 1.
+
+Записывай в ledger каждую попытку: target/task refs до и после pull, `parent_tip`, результат подмёржа, конфликтующие файлы, resolver/verifier handoff и SHA final fast-forward. После любого conflict-resolution commit QUALITY снова RED до green verifier; при успешном цикле верни QUALITY = GREEN. Tracker completion и cleanup разрешены только после SHA final fast-forward.
 
 ## Conflicts
 
