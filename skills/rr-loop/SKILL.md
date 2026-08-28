@@ -33,6 +33,7 @@ disable-model-invocation: true
 LEDGER = .scratch/rr-loop/<task-or-branch>-<BASE>.md. Храни:
 
 - spec paths, task ID, branch, BASE, HEAD, merge_target_branch и последний интегрированный commit target-ветки;
+- tracker activation: исходный и целевой статус, применённый transition, timestamp и результат;
 - current_phase, WORKFLOW_STATUS, QUALITY;
 - review iteration, last_reviewed_head по каждой оси;
 - queued user_directives;
@@ -50,7 +51,14 @@ Finding states: PENDING, FIX_NOW, FIXED, DEFERRED_TO_TASK(<ID>), REJECTED(<reaso
 2. Зафиксируй branch и BASE = git rev-parse HEAD до правок.
 3. Если для task/branch есть нетерминальный ledger, предложи продолжить его или явно сбросить. Без решения не удаляй файл и не повторяй реализацию.
 4. Иначе создай ledger с WORKFLOW_STATUS = RUNNING, QUALITY = RED, current_phase = Implement.
-5. В текущем диалоге продолжай сразу после ответа человека. resume <ledger> нужен только для recovery в новом контексте.
+5. До запуска первого worker, а при recovery — сразу после решения продолжить, выполни Tracker activation.
+6. В текущем диалоге продолжай сразу после ответа человека. resume <ledger> нужен только для recovery в новом контексте.
+
+### Tracker activation
+
+Для исполняемой задачи с `task ID` прочитай `docs/agents/issue-tracker.md` и используй только описанный там способ получения workflow и перехода. Найди статус, означающий начало активной работы: `In Progress` либо его документированный аналог. Если задача уже находится в таком статусе, переход не повторяй; зафиксируй это в ledger.
+
+Иначе переведи задачу этим transition в найденный статус до первого worker. Запиши в ledger исходный/целевой статусы, transition, timestamp и результат. Не подставляй названия статусов, API или команды из памяти. Если документа нет, workflow/status недоступен, активный статус не определён или transition не проходит, запиши tracker activation как `NOT_APPLICABLE` с причиной и продолжай workflow. При отсутствии `task ID` также запиши tracker activation как `NOT_APPLICABLE` и продолжай workflow.
 
 ## State machine
 
