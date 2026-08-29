@@ -2,7 +2,7 @@
 
 <#
 .SYNOPSIS
-    Генерирует Codex profiles и синхронизирует rr-loop assets с локальными agent hosts.
+    Генерирует Codex и CodeBuddy profiles и синхронизирует rr-loop assets с локальными agent hosts.
 
 .DESCRIPTION
     Directory skills подключаются junction-ами. Flat agent/command files копируются,
@@ -94,6 +94,7 @@ function Set-FileCopy {
 }
 
 & (Join-Path $repoRoot 'sync-codex-agents.ps1')
+& (Join-Path $repoRoot 'sync-codebuddy-agents.ps1')
 
 $repoSkillsPath = Join-Path $repoRoot 'skills'
 $rrLoopSkillPath = Join-Path $repoSkillsPath 'rr-loop'
@@ -105,6 +106,7 @@ $userAgentsRoot = Join-Path $userProfilePath '.agents'
 $claudeRoot = Join-Path $userProfilePath '.claude'
 $codexRoot = Join-Path $userProfilePath '.codex'
 $opencodeRoot = Join-Path $userProfilePath '.config\opencode'
+$codeBuddyRoot = Join-Path $userProfilePath '.codebuddy'
 
 Set-DirectoryJunction -Path (Join-Path $repoRoot '.agents\skills') -Target $repoSkillsPath -Root $repoRoot
 Set-DirectoryJunction -Path (Join-Path $codexRoot 'agents') -Target $repoCodexAgentsPath -Root $codexRoot
@@ -112,10 +114,13 @@ Set-DirectoryJunction -Path (Join-Path $codexRoot 'agents') -Target $repoCodexAg
 foreach ($skillInstall in @(
     @{ Path = Join-Path $userAgentsRoot 'skills\rr-loop'; Root = $userAgentsRoot },
     @{ Path = Join-Path $claudeRoot 'skills\rr-loop'; Root = $claudeRoot },
-    @{ Path = Join-Path $opencodeRoot 'skills\rr-loop'; Root = $opencodeRoot }
+    @{ Path = Join-Path $opencodeRoot 'skills\rr-loop'; Root = $opencodeRoot },
+    @{ Path = Join-Path $codeBuddyRoot 'skills\rr-loop'; Root = $codeBuddyRoot }
 )) {
     Set-DirectoryJunction -Path $skillInstall.Path -Target $rrLoopSkillPath -Root $skillInstall.Root
 }
+
+Set-DirectoryJunction -Path (Join-Path $codeBuddyRoot 'agents') -Target (Join-Path $repoRoot '.codebuddy\agents') -Root $codeBuddyRoot
 
 foreach ($hostConfig in @(
     @{ Root = $claudeRoot; Agents = Join-Path $claudeRoot 'agents'; Command = Join-Path $claudeRoot 'command\rr-loop.md' },
