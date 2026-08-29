@@ -32,7 +32,7 @@ disable-model-invocation: true
 
 LEDGER = .scratch/rr-loop/<task-or-branch>-<BASE>.md. Храни:
 
-- spec paths, task ID, branch, BASE, HEAD, merge_target_branch и последний интегрированный commit target-ветки;
+- spec paths, task ID, branch, BASE, HEAD, merge_target_branch, parent_worktree и последний интегрированный commit parent-ветки;
 - tracker activation: исходный и целевой статус, применённый transition, timestamp и результат;
 - current_phase, WORKFLOW_STATUS, QUALITY;
 - review iteration, last_reviewed_head по каждой оси;
@@ -142,18 +142,20 @@ MINOR можно исправить попутно только если в то
 
 ### 9. Merge reconciliation
 
-Эта фаза выполняется только для подтверждённого `merge_target_branch`; task-ветка и target-ветка должны быть явно различны. Перед переключениями проверь чистоту worktree, исключая только учтённый в ledger файл самого ledger. Чужие или неучтённые изменения — `HUMAN_ATTENTION`; не прячь, не stash и не удаляй их.
+Эта фаза выполняется только для подтверждённого `merge_target_branch`; task-ветка и parent-ветка должны быть явно различны. Через `git worktree list --porcelain` найди `parent_worktree`, где checkout parent-ветки, либо явно выбранный чистый integration worktree. Все операции с parent-веткой выполняй только там; task-worktree остаётся на task-ветке. Перед действиями проверь чистоту обоих worktree, исключая только учтённый в ledger файл самого ledger. Чужие или неучтённые изменения — `HUMAN_ATTENTION`; не прячь, не stash и не удаляй их.
+
+Если `parent_worktree` занят параллельным reconciliation другой task-ветки — активен merge (`MERGE_HEAD`) либо Git сообщает lock/index/ref contention — не меняй этот worktree. Дождись завершения или отмены того мёрджа, запиши в ledger ожидаемую ветку, наблюдаемое состояние и результат ожидания, затем начни цикл с шага 1. Используй ожидание task/thread, когда известен владелец; иначе проверяй Git-state с backoff. Не продолжай с зафиксированным до ожидания `parent_tip`.
 
 Повторяй цикл до успешного final merge:
 
-1. Переключись на `merge_target_branch` и выполни `git pull --ff-only`. Если pull не проходит, сохрани точный вывод в ledger и остановись в `HUMAN_ATTENTION`.
-2. Запиши полученный HEAD как `parent_tip`, переключись на task-ветку и выполни `git merge <parent_tip>`.
+1. В `parent_worktree` выполни `git pull --ff-only` parent-ветки. Если она занята параллельным reconciliation, дождись его по правилу выше и начни этот шаг заново. Иную ошибку pull сохрани с точным выводом в ledger и остановись в `HUMAN_ATTENTION`.
+2. Запиши полученный HEAD parent-ветки как `parent_tip`; в task-worktree выполни `git merge <parent_tip>`.
 3. При конфликте запусти fresh reviser только с конфликтующими файлами, `parent_tip` и указанием разрешить текущий merge без потери ни одного из двух изменений. Он разрешает конфликт, выполняет релевантные targeted checks и коммитит merge resolution. Затем запусти fresh verifier для изменённых конфликтом областей и delta-review обеих осей. Red gate или active critical finding возвращает в обычный repair path; после green gate и закрытых findings продолжи этот цикл с шага 1, так как parent-ветка могла сдвинуться.
-4. При merge без конфликта снова переключись на `merge_target_branch` и непосредственно перед final merge выполни `git pull --ff-only`.
-5. Если HEAD target-ветки отличается от `parent_tip`, вернись к шагу 2: task-ветка должна включать именно свежий tip parent-ветки.
-6. Если tips совпадают, выполни `git merge --ff-only <task-branch>` в `merge_target_branch`. Это единственный final merge. Если он не fast-forward, не создавай merge commit: checkpoint, зафиксируй фактические refs и начни цикл заново с шага 1.
+4. При merge без конфликта в `parent_worktree` непосредственно перед final merge снова выполни `git pull --ff-only`. При занятом parent-worktree дождись другого reconciliation и вернись к шагу 1.
+5. Если HEAD parent-ветки отличается от `parent_tip`, вернись к шагу 2: task-ветка должна включать именно свежий tip parent-ветки.
+6. Если tips совпадают, в `parent_worktree` выполни `git merge --ff-only <task-branch>` в parent-ветку. Это единственный final merge. При lock/contention или признаках незавершённого reconciliation другой ветки дождись его завершения либо отмены и вернись к шагу 1. Если fast-forward не проходит, не создавай merge commit: checkpoint, зафиксируй фактические refs и начни цикл заново с шага 1; после обновления parent-ветки снова выполни подмёрж, устранение конфликтов и новую попытку.
 
-Записывай в ledger каждую попытку: target/task refs до и после pull, `parent_tip`, результат подмёржа, конфликтующие файлы, resolver/verifier handoff и SHA final fast-forward. После любого conflict-resolution commit QUALITY снова RED до green verifier; при успешном цикле верни QUALITY = GREEN. Tracker completion и cleanup разрешены только после SHA final fast-forward.
+Записывай в ledger каждую попытку: `parent_worktree`, parent/task refs до и после pull, `parent_tip`, ожидания параллельных reconciliation, результат подмёржа, конфликтующие файлы, resolver/verifier handoff и SHA final fast-forward. После любого conflict-resolution commit QUALITY снова RED до green verifier; при успешном цикле верни QUALITY = GREEN. Tracker completion и cleanup разрешены только после SHA final fast-forward.
 
 ## Conflicts
 
