@@ -50,6 +50,21 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 существующие пользовательские файлы (например остальные skills в ~/.agents) не трогаются.
 Сфера ограничена OpenCode (~/.config/opencode) и каноническим ~/.agents.
 
+## OpenCode model overrides
+
+    pwsh -NoProfile -ExecutionPolicy Bypass -File .\install-opencode-model-overrides.ps1
+
+Канонические `agents/*.md` остаются без модели. Скрипт мержит в
+`~/.config/opencode/opencode.json` только `agents.<name>.model`, не трогая
+остальной конфиг (перед записью делает `.bak.*`):
+
+| Agent | Model |
+| --- | --- |
+| implementer, reviser, verifier | `omniroute/coder` |
+| standards-reviewer, spec-reviewer | `omniroute/architector` |
+
+Требует PowerShell 7+.
+
 ## Проверка
 
 - Get-Item для ~/.codex/agents возвращает junction на .codex/agents этого репозитория.
