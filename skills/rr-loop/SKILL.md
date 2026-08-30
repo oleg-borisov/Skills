@@ -35,7 +35,7 @@ LEDGER = .scratch/rr-loop/<task-or-branch>-<BASE>.md. Храни:
 - spec paths, task ID, branch, BASE, HEAD, merge_target_branch, parent_worktree и последний интегрированный commit parent-ветки;
 - tracker activation: исходный и целевой статус, применённый transition, timestamp и результат;
 - current_phase, WORKFLOW_STATUS, QUALITY;
-- review iteration, last_reviewed_head по каждой оси;
+- review iteration, last_reviewed_head по каждой оси, last_full_green_head;
 - queued user_directives;
 - phase_results: phase, worker, input fixed point, output commit, checks/verdict, timestamp;
 - findings: stable ID, axis, severity, location, evidence, proposed fix, state, human decision;
@@ -70,13 +70,11 @@ Completion: worker commit существует, scope и checks записаны
 
 ### 2. Pre-review gate
 
-Запусти fresh verifier в режиме pre-review:
+Если `HEAD != last_full_green_head`, запусти fresh verifier в режиме pre-review с одним relevant full suite. Targeted checks уже выполнил implementer.
 
-1. compile/typecheck affected source sets;
-2. targeted tests для changed behavior;
-3. один relevant full suite.
+При green запиши `last_full_green_head = HEAD`. При `HEAD == last_full_green_head` gate уже закрыт.
 
-При red gate передай единый failure inventory fresh implementer до первого review или reviser после review. Repair не увеличивает review iteration. После repair commit запусти fresh verifier ещё раз. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
+При red gate передай единый failure inventory fresh implementer до первого review или reviser после review. Repair не увеличивает review iteration. При repair commit вернись к этому gate; при unchanged HEAD → HUMAN_ATTENTION. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
 
 Completion: verifier вернул green с exact commands/results.
 
@@ -110,7 +108,7 @@ MINOR можно исправить попутно только если в то
 
 Запусти fresh reviser с critical findings, указаниями человека и eligible cheap MINOR. Прими commit SHA либо подтверждение unchanged HEAD, per-finding disposition и targeted checks. Отклонённый BLOCKER всегда переводи в HUMAN_ATTENTION.
 
-После commit: fresh verifier в targeted → delta Review только по originating axes. Полный suite повторится только в final gate.
+При новом commit запусти delta Review только по originating axes. При unchanged HEAD не запускай checks или review.
 
 ### 6. Human decisions
 
@@ -126,13 +124,13 @@ MINOR можно исправить попутно только если в то
 
 - Создай согласованные linked tasks по docs/agents/issue-tracker.md и запиши IDs/URLs.
 - Запиши human rejection с причиной.
-- Для FIX_NOW запусти fresh reviser, затем targeted verifier gate и только originating review axis. Максимум две review iterations; critical finding после лимита возвращает workflow в Human decisions.
+- Для FIX_NOW запусти fresh reviser. При новом commit выполни только originating review axis; при unchanged HEAD не запускай checks или review. Максимум две review iterations; critical finding после лимита возвращает workflow в Human decisions.
 
 ### 8. Final gate and completion
 
-1. Запусти fresh verifier в final: compile affected source sets, targeted tests, один final relevant full suite.
+1. Если `HEAD != last_full_green_head`, запусти fresh verifier в final с одним relevant full suite; при green запиши `last_full_green_head = HEAD`.
 2. Если gate red, передай inventory fresh reviser. Для repair commit запиши affected_review_axes: Spec для изменения observable behavior, contracts или requirements; Standards для изменения структуры или conventions; пустой список допустим только для tests/build tooling, не меняющих product code. При неясной классификации запускай обе оси.
-3. После repair commit запусти targeted verifier, затем delta-review только по affected_review_axes. Повтори final gate. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
+3. После repair commit выполни delta-review только по affected_review_axes и повтори этот gate. При unchanged HEAD → HUMAN_ATTENTION. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
 4. При green gate не запускай review: каждый commit после initial Review уже прошёл обязательный delta-review, а verifier не меняет HEAD.
 5. Проверь ledger: нет PENDING, FIX_NOW, HUMAN_ATTENTION и active critical findings.
 6. Установи QUALITY = GREEN.
