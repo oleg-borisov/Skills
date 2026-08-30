@@ -40,9 +40,20 @@ skills/rr-loop/SKILL.md — единственный source of truth controller.
 
 File symlinks не используются: целевые hosts их не подхватывают. Сторонние файлы в пользовательских каталогах сохраняются.
 
+## Синхронизация на macOS (OpenCode + ~/.agents)
+
+    ./link-opencode.sh
+
+macOS-аналог junction — это symlink; на macOS hosts корректно читают симлинки,
+поэтому всё (skills, agents, command) подключается ссылками и повторная установка
+после правок не нужна. Точно так же изменяются только известные rr-loop assets,
+существующие пользовательские файлы (например остальные skills в ~/.agents) не трогаются.
+Сфера ограничена OpenCode (~/.config/opencode) и каноническим ~/.agents.
+
 ## Проверка
 
 - Get-Item для ~/.codex/agents возвращает junction на .codex/agents этого репозитория.
+- На macOS: `~/.config/opencode/agents/*.md`, `~/.config/opencode/skills/rr-loop`, `~/.config/opencode/commands/rr-loop.md` и `~/.agents/skills/rr-loop` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять leaf-agents и отсутствуют reviewer/custom-agent rr-loop.
 - Skill rr-loop вызывается в primary-контексте через /rr-loop или $rr-loop.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.
