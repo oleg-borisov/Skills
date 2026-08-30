@@ -10,36 +10,21 @@ disable-model-invocation: true
 
 ## Инварианты
 
-- Все leaf-agents — прямые дети primary; leaf-agent не запускает другого агента.
-- Controller не читает весь product code, не редактирует его и не запускает project checks. Ему достаточно spec, git metadata, compact handoffs и ledger.
-- Каждый worker получает только spec paths, fixed points, finding IDs и свой phase contract. Не вставляй в prompt полную историю цикла.
-- Worker, который меняет код, коммитит свою фазу. Controller проверяет новый HEAD.
-- Review начинается только после green verifier gate. Reviewers не запускают checks.
-- QUALITY = GREEN: активных BLOCKER/MAJOR нет, final gate green, initial и обязательные delta-review завершены.
+- Leaf-agents — прямые дети primary; controller не читает весь product code, не редактирует его и не запускает project checks.
+- Worker получает только spec paths, fixed points, finding IDs и phase contract; worker с изменениями коммитит, controller сверяет HEAD.
+- Нужны implementer, verifier, standards-reviewer, spec-reviewer и reviser. Если роли или subagents недоступны: `BLOCKED_UNSUPPORTED_HOST`, missing capabilities в ledger, stop.
+- Review начинается после green verifier gate; reviewers не запускают checks. `QUALITY = GREEN`, только когда нет active BLOCKER/MAJOR, green final gate и завершены initial/обязательные delta-review.
 - Итоговый отчёт и cleanup ledger разрешены только при terminal status.
-
-## Leaf-agents
-
-- implementer — реализует spec, делает targeted checks, коммитит.
-- verifier — read-only gate; возвращает один failure inventory.
-- standards-reviewer — проверяет documented standards и smell baseline.
-- spec-reviewer — проверяет соответствие spec.
-- reviser — исправляет заданные finding IDs, делает targeted checks, коммитит.
-
-Все пять named leaf-agents являются обязательной capability host. Если хотя бы одна требуемая роль или механизм subagents недоступны, установи WORKFLOW_STATUS = BLOCKED_UNSUPPORTED_HOST, перечисли отсутствующие capabilities, сохрани ledger и остановись.
 
 ## Ledger
 
 LEDGER = .scratch/rr-loop/<task-or-branch>-<BASE>.md. Храни:
 
-- spec paths, task ID, branch, BASE, HEAD, merge_target_branch, parent_worktree и последний интегрированный commit parent-ветки;
-- tracker activation: исходный и целевой статус, применённый transition, timestamp и результат;
-- current_phase, WORKFLOW_STATUS, QUALITY;
-- review iteration, last_reviewed_head по каждой оси, last_full_green_head;
-- queued user_directives;
+- identity: spec paths, task ID, branch, BASE, HEAD, merge_target_branch, parent_worktree, последний интегрированный commit parent-ветки;
+- tracker activation: source/target status, transition, timestamp, result;
+- state: current_phase, WORKFLOW_STATUS, QUALITY, review iteration, last_reviewed_head по оси, last_full_green_head, queued user_directives;
 - phase_results: phase, worker, input fixed point, output commit, checks/verdict, timestamp;
-- findings: stable ID, axis, severity, location, evidence, proposed fix, state, human decision;
-- pending human action и completion decision.
+- findings: stable ID, axis, severity, location, evidence, proposed fix, state, human decision; pending human action и completion decision.
 
 Finding states: PENDING, FIX_NOW, FIXED, DEFERRED_TO_TASK(<ID>), REJECTED(<reason>), HUMAN_ATTENTION.
 
@@ -47,18 +32,13 @@ Finding states: PENDING, FIX_NOW, FIXED, DEFERRED_TO_TASK(<ID>), REJECTED(<reaso
 
 ## Запуск и recovery
 
-1. Прочитай spec и выпиши acceptance criteria.
-2. Зафиксируй branch и BASE = git rev-parse HEAD до правок.
-3. Если для task/branch есть нетерминальный ledger, предложи продолжить его или явно сбросить. Без решения не удаляй файл и не повторяй реализацию.
-4. Иначе создай ledger с WORKFLOW_STATUS = RUNNING, QUALITY = RED, current_phase = Implement.
-5. До запуска первого worker, а при recovery — сразу после решения продолжить, выполни Tracker activation.
-6. В текущем диалоге продолжай сразу после ответа человека. resume <ledger> нужен только для recovery в новом контексте.
+1. Прочитай spec/acceptance criteria и зафиксируй branch с `BASE = git rev-parse HEAD` до правок.
+2. При нетерминальном ledger task/branch предложи continue или explicit reset; без решения не удаляй его и не повторяй реализацию. Иначе создай `RUNNING`, `RED`, `Implement` ledger.
+3. Выполни Tracker activation до первого worker, а при recovery — после continue. В том же диалоге продолжай после ответа; `resume <ledger>` нужен только в новом контексте.
 
 ### Tracker activation
 
-Для исполняемой задачи с `task ID` прочитай `docs/agents/issue-tracker.md` и используй только описанный там способ получения workflow и перехода. Найди статус, означающий начало активной работы: `In Progress` либо его документированный аналог. Если задача уже находится в таком статусе, переход не повторяй; зафиксируй это в ledger.
-
-Иначе переведи задачу этим transition в найденный статус до первого worker. Запиши в ledger исходный/целевой статусы, transition, timestamp и результат. Не подставляй названия статусов, API или команды из памяти. Если документа нет, workflow/status недоступен, активный статус не определён или transition не проходит, запиши tracker activation как `NOT_APPLICABLE` с причиной и продолжай workflow. При отсутствии `task ID` также запиши tracker activation как `NOT_APPLICABLE` и продолжай workflow.
+Для task ID прочитай `docs/agents/issue-tracker.md` и только его способом найди active-work status (`In Progress` или документированный аналог). Уже активную задачу лишь зафиксируй; иначе выполни transition до первого worker и запиши source/target, transition, timestamp, result. Без task ID, документа, workflow/status, active status или успешного transition запиши `NOT_APPLICABLE` с причиной и продолжай; названия статусов, API и команды не подставляй из памяти.
 
 ## State machine
 
@@ -70,13 +50,7 @@ Completion: worker commit существует, scope и checks записаны
 
 ### 2. Pre-review gate
 
-Если `HEAD != last_full_green_head`, запусти fresh verifier в режиме pre-review с одним relevant full suite. Targeted checks уже выполнил implementer.
-
-При green запиши `last_full_green_head = HEAD`. При `HEAD == last_full_green_head` gate уже закрыт.
-
-При red gate передай единый failure inventory fresh implementer до первого review или reviser после review. Repair не увеличивает review iteration. При repair commit вернись к этому gate; при unchanged HEAD → HUMAN_ATTENTION. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
-
-Completion: verifier вернул green с exact commands/results.
+Если `HEAD != last_full_green_head`, fresh verifier в `pre-review` запускает один relevant full suite; при green запиши `last_full_green_head = HEAD`. При red передай единый inventory fresh implementer, после repair commit повтори gate; unchanged HEAD либо одинаковый red без прогресса два раза → `HUMAN_ATTENTION`.
 
 ### 3. Review
 
@@ -106,37 +80,26 @@ MINOR можно исправить попутно только если в то
 
 ### 5. Revise
 
-Запусти fresh reviser с critical findings, указаниями человека и eligible cheap MINOR. Прими commit SHA либо подтверждение unchanged HEAD, per-finding disposition и targeted checks. Отклонённый BLOCKER всегда переводи в HUMAN_ATTENTION.
-
-При новом commit запусти delta Review только по originating axes. При unchanged HEAD не запускай checks или review.
+Запусти fresh reviser с critical findings, указаниями человека и eligible cheap MINOR; прими commit SHA/unchanged HEAD, per-finding disposition и targeted checks. Отклонённый BLOCKER → `HUMAN_ATTENTION`. При новом commit выполни delta Review только по originating axes; при unchanged HEAD не запускай checks или review.
 
 ### 6. Human decisions
 
-Задай все готовые вопросы одним batch. Для каждого finding покажи ID, severity, axis, location, evidence и proposed fix.
+Задай все готовые вопросы одним batch: ID, severity, axis, location, evidence, proposed fix; варианты — `FIX_NOW`, linked task, `REJECTED(<reason>)`, а для critical ещё correction/instruction. Явный отказ от critical → `STOPPED_BY_HUMAN`, не `COMPLETED`.
 
-Варианты: FIX_NOW, создать linked task, REJECTED(<reason>). Для critical finding также прими correction/instruction. Явный отказ исправлять critical finding → STOPPED_BY_HUMAN, не COMPLETED.
-
-Перед вопросом установи WORKFLOW_STATUS = WAITING_FOR_HUMAN, запиши pending_action и сделай checkpoint. После ответа запиши решения, очисти pending_action и верни WORKFLOW_STATUS = RUNNING, кроме terminal refusal.
-
-Новые указания человека во время активного worker добавляй в user_directives; worker не прерывай. Примени directives перед следующим переходом фазы и отметь их consumed.
+Перед вопросом: `WAITING_FOR_HUMAN`, pending_action, checkpoint; после ответа запиши решения, очисти pending_action и верни `RUNNING`, кроме terminal refusal. Новые directives во время worker добавляй в `user_directives`, применяй перед следующим переходом и отмечай consumed.
 
 ### 7. Execute minor decisions
 
-- Создай согласованные linked tasks по docs/agents/issue-tracker.md и запиши IDs/URLs.
-- Запиши human rejection с причиной.
-- Для FIX_NOW запусти fresh reviser. При новом commit выполни только originating review axis; при unchanged HEAD не запускай checks или review. Максимум две review iterations; critical finding после лимита возвращает workflow в Human decisions.
+- Создай согласованные linked tasks по docs/agents/issue-tracker.md и запиши IDs/URLs; rejection запиши с причиной.
+- Для `FIX_NOW` запусти reviser как в фазе 5; максимум две review iterations, затем critical finding возвращается в Human decisions.
 
 ### 8. Final gate and completion
 
-1. Если `HEAD != last_full_green_head`, запусти fresh verifier в final с одним relevant full suite; при green запиши `last_full_green_head = HEAD`.
-2. Если gate red, передай inventory fresh reviser. Для repair commit запиши affected_review_axes: Spec для изменения observable behavior, contracts или requirements; Standards для изменения структуры или conventions; пустой список допустим только для tests/build tooling, не меняющих product code. При неясной классификации запускай обе оси.
-3. После repair commit выполни delta-review только по affected_review_axes и повтори этот gate. При unchanged HEAD → HUMAN_ATTENTION. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
-4. При green gate не запускай review: каждый commit после initial Review уже прошёл обязательный delta-review, а verifier не меняет HEAD.
-5. Проверь ledger: нет PENDING, FIX_NOW, HUMAN_ATTENTION и active critical findings.
-6. Установи QUALITY = GREEN.
-7. Установи WORKFLOW_STATUS = WAITING_FOR_HUMAN, запиши completion decision как pending_action, сделай checkpoint и спроси, выполнять ли merge в явно названную parent-ветку, tracker completion и cleanup current worktree. Сохрани `merge_target_branch` в ledger. Без явного подтверждения не выполняй эти действия.
-8. После подтверждения выполни фазу Merge reconciliation.
-9. Только после успешного fast-forward merge установи WORKFLOW_STATUS = COMPLETED, сформируй итоговый отчёт, опубликуй его в tracker при наличии task ID и удали ledger.
+1. Если `HEAD != last_full_green_head`, fresh verifier в `final` запускает один relevant full suite и при green обновляет `last_full_green_head`.
+2. При red передай inventory reviser. Для его commit задай `affected_review_axes`: Spec — observable behavior/contracts/requirements; Standards — structure/conventions; пусто допустимо только для tests/build tooling без product code; при неясности — обе оси. Выполни delta Review этих осей и повтори gate. Unchanged HEAD либо одинаковый red без прогресса два раза → `HUMAN_ATTENTION`.
+3. Green verifier review не запускает. Проверь отсутствие `PENDING`, `FIX_NOW`, `HUMAN_ATTENTION` и active critical findings, затем `QUALITY = GREEN`.
+4. Установи `WAITING_FOR_HUMAN`, completion decision как pending_action, checkpoint; запроси явное подтверждение merge в named parent branch, tracker completion и cleanup. Сохрани `merge_target_branch`.
+5. После подтверждения выполни Merge reconciliation. Только успешный fast-forward даёт `COMPLETED`, итоговый отчёт, tracker publication и удаление ledger.
 
 ### 9. Merge reconciliation
 
