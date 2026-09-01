@@ -16,17 +16,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser')
 
 REPO_SKILLS_PATH="$REPO_ROOT/skills"
-RR_LOOP_SKILL_PATH="$REPO_SKILLS_PATH/rr-loop"
 REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"
 COMMAND_SOURCE_PATH="$REPO_ROOT/command/rr-loop.md"
 
 USER_AGENTS_ROOT="$HOME/.agents"
 OPENCODE_ROOT="$HOME/.config/opencode"
 
-if [[ ! -d "$RR_LOOP_SKILL_PATH" ]]; then
-    echo "Ошибка: отсутствует канонический skill: $RR_LOOP_SKILL_PATH" >&2
-    exit 1
-fi
 if [[ ! -f "$COMMAND_SOURCE_PATH" ]]; then
     echo "Ошибка: отсутствует канонический command: $COMMAND_SOURCE_PATH" >&2
     exit 1
@@ -62,11 +57,33 @@ set_symlink() {
     echo "Symlink: $path -> $target"
 }
 
-# Skill в каноническом ~/.agents (opencode читает его как agent-compatible skills).
-set_symlink "$USER_AGENTS_ROOT/skills/rr-loop" "$RR_LOOP_SKILL_PATH"
+shopt -s nullglob
+skill_entries=("$REPO_SKILLS_PATH"/*)
+shopt -u nullglob
 
-# OpenCode: skills / agents / commands.
-set_symlink "$OPENCODE_ROOT/skills/rr-loop" "$RR_LOOP_SKILL_PATH"
+skill_paths=()
+for skill_path in "${skill_entries[@]}"; do
+    [[ -d "$skill_path" ]] && skill_paths+=("$skill_path")
+done
+
+if (( ${#skill_paths[@]} == 0 )); then
+    echo "Ошибка: не найдены канонические skills: $REPO_SKILLS_PATH" >&2
+    exit 1
+fi
+
+for skill_path in "${skill_paths[@]}"; do
+    skill_name="$(basename "$skill_path")"
+    if [[ ! -f "$skill_path/SKILL.md" ]]; then
+        echo "Ошибка: отсутствует SKILL.md: $skill_path" >&2
+        exit 1
+    fi
+
+    # ~/.agents — каноническая папка agent-compatible skills; OpenCode — host install.
+    set_symlink "$USER_AGENTS_ROOT/skills/$skill_name" "$skill_path"
+    set_symlink "$OPENCODE_ROOT/skills/$skill_name" "$skill_path"
+done
+
+# OpenCode: agents / commands.
 
 for name in "${AGENTS[@]}"; do
     set_symlink "$OPENCODE_ROOT/agents/$name.md" "$REPO_MARKDOWN_AGENTS_PATH/$name.md"

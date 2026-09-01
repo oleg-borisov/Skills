@@ -33,7 +33,7 @@ skills/rr-loop/SKILL.md — единственный source of truth controller.
 
 Скрипт сначала генерирует Codex profiles, затем:
 
-- подключает directory skills rr-loop junction-ами;
+- подключает directory skill `rr-loop` junction-ами;
 - копирует flat Markdown agents и command в Claude Code/OpenCode;
 - сохраняет ~/.codex/agents как junction на .codex/agents;
 - копирует TOML leaf-agents и подключает skill во все Orca/codex-accounts/*/home;
@@ -68,7 +68,7 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 ## Проверка
 
 - Get-Item для ~/.codex/agents возвращает junction на .codex/agents этого репозитория.
-- На macOS: `~/.config/opencode/agents/*.md`, `~/.config/opencode/skills/rr-loop`, `~/.config/opencode/commands/rr-loop.md` и `~/.agents/skills/rr-loop` — симлинки на этот репозиторий.
+- На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, `~/.config/opencode/commands/rr-loop.md` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять leaf-agents и отсутствуют reviewer/custom-agent rr-loop.
 - Skill rr-loop вызывается в primary-контексте через /rr-loop или $rr-loop.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.

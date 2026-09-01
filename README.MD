@@ -10,4 +10,8 @@
 
     .\link-codex.ps1
 
+На macOS для OpenCode и `~/.agents`:
+
+    ./link-opencode.sh
+
 Формат, зависимости и целевые каталоги описаны в AGENTS.md.
