@@ -7,7 +7,7 @@
 # установка не нужна. Скрипт изменяет только известные rr-loop assets и
 # сохраняет остальные пользовательские файлы.
 #
-# Сфера: OpenCode (~/.config/opencode) и канонический ~/.agents.
+# Сфера: OpenCode (~/.config/opencode), ZCode (~/.zcode) и канонический ~/.agents.
 
 set -euo pipefail
 
@@ -17,15 +17,19 @@ AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser')
 
 REPO_SKILLS_PATH="$REPO_ROOT/skills"
 REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"
+REPO_ZCODE_AGENTS_PATH="$REPO_ROOT/.zcode/agents"
 COMMAND_SOURCE_PATH="$REPO_ROOT/command/rr-loop.md"
 
 USER_AGENTS_ROOT="$HOME/.agents"
 OPENCODE_ROOT="$HOME/.config/opencode"
+ZCODE_ROOT="$HOME/.zcode"
 
 if [[ ! -f "$COMMAND_SOURCE_PATH" ]]; then
     echo "Ошибка: отсутствует канонический command: $COMMAND_SOURCE_PATH" >&2
     exit 1
 fi
+
+bash "$REPO_ROOT/sync-zcode-agents.sh"
 
 # set_symlink <path> <target>
 #  - Создаёт родительский каталог при необходимости.
@@ -87,6 +91,7 @@ done
 
 for name in "${AGENTS[@]}"; do
     set_symlink "$OPENCODE_ROOT/agents/$name.md" "$REPO_MARKDOWN_AGENTS_PATH/$name.md"
+    set_symlink "$ZCODE_ROOT/agents/$name.md" "$REPO_ZCODE_AGENTS_PATH/$name.md"
 done
 
 set_symlink "$OPENCODE_ROOT/commands/rr-loop.md" "$COMMAND_SOURCE_PATH"

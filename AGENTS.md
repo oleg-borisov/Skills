@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Репозиторий содержит переиспользуемые agent assets для Claude Code, OpenCode и Codex.
+Репозиторий содержит переиспользуемые agent assets для Claude Code, OpenCode, ZCode и Codex.
 
 ## Структура
 
@@ -11,6 +11,7 @@
 | command/ | Primary slash-command adapter /rr-loop для Claude Code и OpenCode. |
 | skills/rr-loop/ | Канонический user-invoked primary skill с полным controller workflow. |
 | .codex/agents/ | Генерируемые TOML profiles только для leaf-agents. |
+| .zcode/agents/ | Генерируемые Markdown profiles только для ZCode leaf-agents. |
 | docs/agents/ | Инструкции интеграций, например issue-tracker.md. |
 
 skills/rr-loop/SKILL.md — единственный source of truth controller. Отдельного custom-agent rr-loop нет.
@@ -27,6 +28,16 @@ skills/rr-loop/SKILL.md — единственный source of truth controller.
 
 Скрипт генерирует .codex/agents/*.toml из канонических Markdown agents. TOML-файлы вручную не редактировать.
 
+## Генерация ZCode profiles
+
+    .\sync-zcode-agents.ps1
+
+На macOS:
+
+    bash ./sync-zcode-agents.sh
+
+Скрипты генерируют `.zcode/agents/*.md` из канонических Markdown agents. ZCode-профили вручную не редактировать: они не задают `model`, поэтому наследуют дефолтную модель ZCode.
+
 ## Синхронизация окружений
 
     .\link-codex.ps1
@@ -37,18 +48,20 @@ skills/rr-loop/SKILL.md — единственный source of truth controller.
 - копирует flat Markdown agents и command в Claude Code/OpenCode;
 - сохраняет ~/.codex/agents как junction на .codex/agents;
 - копирует TOML leaf-agents и подключает skill во все Orca/codex-accounts/*/home;
+- копирует генерируемые ZCode Markdown profiles в `~/.zcode/agents`.
 
 File symlinks не используются: целевые hosts их не подхватывают. Сторонние файлы в пользовательских каталогах сохраняются.
 
-## Синхронизация на macOS (OpenCode + ~/.agents)
+## Синхронизация на macOS (OpenCode + ZCode + ~/.agents)
 
     ./link-opencode.sh
 
 macOS-аналог junction — это symlink; на macOS hosts корректно читают симлинки,
 поэтому всё (skills, agents, command) подключается ссылками и повторная установка
-после правок не нужна. Точно так же изменяются только известные rr-loop assets,
+после правок не нужна. ZCode subagents в `~/.zcode/agents` также подключаются
+симлинками. Точно так же изменяются только известные rr-loop assets,
 существующие пользовательские файлы (например остальные skills в ~/.agents) не трогаются.
-Сфера ограничена OpenCode (~/.config/opencode) и каноническим ~/.agents.
+Сфера ограничена OpenCode (~/.config/opencode), ZCode (~/.zcode) и каноническим ~/.agents.
 
 ## OpenCode model overrides
 
@@ -68,7 +81,8 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 ## Проверка
 
 - Get-Item для ~/.codex/agents возвращает junction на .codex/agents этого репозитория.
-- На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, `~/.config/opencode/commands/rr-loop.md` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
+- На Windows: `~/.zcode/agents/*.md` — копии `.zcode/agents/*.md`.
+- На macOS: `~/.config/opencode/agents/*.md`, `~/.zcode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, `~/.config/opencode/commands/rr-loop.md` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять leaf-agents и отсутствуют reviewer/custom-agent rr-loop.
 - Skill rr-loop вызывается в primary-контексте через /rr-loop или $rr-loop.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.
