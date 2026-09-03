@@ -19,6 +19,7 @@ $repoRoot = $PSScriptRoot
 $userProfilePath = [Environment]::GetFolderPath('UserProfile')
 $orcaAccountsRoot = Join-Path $env:APPDATA 'orca\codex-accounts'
 $agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser')
+$workflowNames = @('rr-loop', 'rr-cascade-loop')
 
 function Assert-PathWithin {
     param(
@@ -97,11 +98,9 @@ function Set-FileCopy {
 & (Join-Path $repoRoot 'sync-zcode-agents.ps1')
 
 $repoSkillsPath = Join-Path $repoRoot 'skills'
-$rrLoopSkillPath = Join-Path $repoSkillsPath 'rr-loop'
 $repoMarkdownAgentsPath = Join-Path $repoRoot 'agents'
 $repoCodexAgentsPath = Join-Path $repoRoot '.codex\agents'
 $repoZCodeAgentsPath = Join-Path $repoRoot '.zcode\agents'
-$commandSourcePath = Join-Path $repoRoot 'command\rr-loop.md'
 
 $userAgentsRoot = Join-Path $userProfilePath '.agents'
 $claudeRoot = Join-Path $userProfilePath '.claude'
@@ -112,23 +111,23 @@ $zcodeRoot = Join-Path $userProfilePath '.zcode'
 Set-DirectoryJunction -Path (Join-Path $repoRoot '.agents\skills') -Target $repoSkillsPath -Root $repoRoot
 Set-DirectoryJunction -Path (Join-Path $codexRoot 'agents') -Target $repoCodexAgentsPath -Root $codexRoot
 
-foreach ($skillInstall in @(
-    @{ Path = Join-Path $userAgentsRoot 'skills\rr-loop'; Root = $userAgentsRoot },
-    @{ Path = Join-Path $claudeRoot 'skills\rr-loop'; Root = $claudeRoot },
-    @{ Path = Join-Path $opencodeRoot 'skills\rr-loop'; Root = $opencodeRoot }
-)) {
-    Set-DirectoryJunction -Path $skillInstall.Path -Target $rrLoopSkillPath -Root $skillInstall.Root
+foreach ($workflowName in $workflowNames) {
+    foreach ($hostRoot in @($userAgentsRoot, $claudeRoot, $opencodeRoot)) {
+        Set-DirectoryJunction -Path (Join-Path $hostRoot "skills\$workflowName") -Target (Join-Path $repoSkillsPath $workflowName) -Root $hostRoot
+    }
 }
 
 foreach ($hostConfig in @(
-    @{ Root = $claudeRoot; Agents = Join-Path $claudeRoot 'agents'; Command = Join-Path $claudeRoot 'command\rr-loop.md' },
-    @{ Root = $opencodeRoot; Agents = Join-Path $opencodeRoot 'agents'; Command = Join-Path $opencodeRoot 'command\rr-loop.md' }
+    @{ Root = $claudeRoot; Agents = Join-Path $claudeRoot 'agents'; Commands = Join-Path $claudeRoot 'command' },
+    @{ Root = $opencodeRoot; Agents = Join-Path $opencodeRoot 'agents'; Commands = Join-Path $opencodeRoot 'command' }
 )) {
     foreach ($agentName in $agentNames) {
         Set-FileCopy -Path (Join-Path $hostConfig.Agents "$agentName.md") -Source (Join-Path $repoMarkdownAgentsPath "$agentName.md") -Root $hostConfig.Root
     }
 
-    Set-FileCopy -Path $hostConfig.Command -Source $commandSourcePath -Root $hostConfig.Root
+    foreach ($workflowName in $workflowNames) {
+        Set-FileCopy -Path (Join-Path $hostConfig.Commands "$workflowName.md") -Source (Join-Path $repoRoot "command\$workflowName.md") -Root $hostConfig.Root
+    }
 }
 
 foreach ($agentName in $agentNames) {
@@ -147,7 +146,9 @@ if (Test-Path -LiteralPath $orcaAccountsRoot) {
             Set-FileCopy -Path (Join-Path $accountAgentsPath "$agentName.toml") -Source (Join-Path $repoCodexAgentsPath "$agentName.toml") -Root $accountHomePath
         }
 
-        Set-DirectoryJunction -Path (Join-Path $accountSkillsPath 'rr-loop') -Target $rrLoopSkillPath -Root $accountHomePath
+        foreach ($workflowName in $workflowNames) {
+            Set-DirectoryJunction -Path (Join-Path $accountSkillsPath $workflowName) -Target (Join-Path $repoSkillsPath $workflowName) -Root $accountHomePath
+        }
     }
 }
 

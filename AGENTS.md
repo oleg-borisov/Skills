@@ -8,18 +8,19 @@
 | --- | --- |
 | agents/ | Канонические Markdown-контракты leaf-agents: implementer, verifier, standards-reviewer, spec-reviewer, reviser. |
 | agents/skill.reference | Служебное происхождение prompts, адаптированных из внешних skills. Агенты этот файл не читают. |
-| command/ | Primary slash-command adapter /rr-loop для Claude Code и OpenCode. |
+| command/ | Primary slash-command adapters /rr-loop и /rr-cascade-loop для Claude Code и OpenCode. |
 | skills/rr-loop/ | Канонический user-invoked primary skill с полным controller workflow. |
+| skills/rr-cascade-loop/ | Каскад готовых задач спецификации с совмещённым review. |
 | .codex/agents/ | Генерируемые TOML profiles только для leaf-agents. |
 | .zcode/agents/ | Генерируемые Markdown profiles только для ZCode leaf-agents. |
 | docs/agents/ | Инструкции интеграций, например issue-tracker.md. |
 
-skills/rr-loop/SKILL.md — единственный source of truth controller. Отдельного custom-agent rr-loop нет.
+Каждый `skills/rr-loop/SKILL.md` и `skills/rr-cascade-loop/SKILL.md` — source of truth своего controller workflow. Отдельных custom controller-agents нет.
 
 ## Зависимости
 
 - Leaf-agents используют доступные системные skills только по явным ссылкам в своих контрактах, например /tdd.
-- rr-loop ожидает docs/agents/issue-tracker.md, когда нужны tracker operations.
+- Оба workflow ожидают docs/agents/issue-tracker.md, когда нужны tracker operations.
 - Все пять named leaf-agents обязательны; при отсутствии роли или механизма subagents workflow останавливается с BLOCKED_UNSUPPORTED_HOST.
 
 ## Генерация Codex profiles
@@ -44,7 +45,7 @@ skills/rr-loop/SKILL.md — единственный source of truth controller.
 
 Скрипт сначала генерирует Codex profiles, затем:
 
-- подключает directory skill `rr-loop` junction-ами;
+- подключает directory skills `rr-loop` и `rr-cascade-loop` junction-ами;
 - копирует flat Markdown agents и command в Claude Code/OpenCode;
 - сохраняет ~/.codex/agents как junction на .codex/agents;
 - копирует TOML leaf-agents и подключает skill во все Orca/codex-accounts/*/home;
@@ -82,7 +83,7 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 
 - Get-Item для ~/.codex/agents возвращает junction на .codex/agents этого репозитория.
 - На Windows: `~/.zcode/agents/*.md` — копии `.zcode/agents/*.md`.
-- На macOS: `~/.config/opencode/agents/*.md`, `~/.zcode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, `~/.config/opencode/commands/rr-loop.md` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
+- На macOS: `~/.config/opencode/agents/*.md`, `~/.zcode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, `~/.config/opencode/commands/rr-loop.md`, `~/.config/opencode/commands/rr-cascade-loop.md` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять leaf-agents и отсутствуют reviewer/custom-agent rr-loop.
-- Skill rr-loop вызывается в primary-контексте через /rr-loop или $rr-loop.
+- Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop или $rr-cascade-loop.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.

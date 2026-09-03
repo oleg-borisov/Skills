@@ -26,4 +26,3 @@ Verdict: PASS | FINDINGS | NO_SPEC
 ## Findings
 - file:line — spec-file:line — missing|partial|scope-creep|wrong — evidence — proposed fix
 ```
-

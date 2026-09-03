@@ -18,16 +18,18 @@ AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser')
 REPO_SKILLS_PATH="$REPO_ROOT/skills"
 REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"
 REPO_ZCODE_AGENTS_PATH="$REPO_ROOT/.zcode/agents"
-COMMAND_SOURCE_PATH="$REPO_ROOT/command/rr-loop.md"
+WORKFLOWS=('rr-loop' 'rr-cascade-loop')
 
 USER_AGENTS_ROOT="$HOME/.agents"
 OPENCODE_ROOT="$HOME/.config/opencode"
 ZCODE_ROOT="$HOME/.zcode"
 
-if [[ ! -f "$COMMAND_SOURCE_PATH" ]]; then
-    echo "Ошибка: отсутствует канонический command: $COMMAND_SOURCE_PATH" >&2
-    exit 1
-fi
+for workflow in "${WORKFLOWS[@]}"; do
+    if [[ ! -f "$REPO_ROOT/command/$workflow.md" ]]; then
+        echo "Ошибка: отсутствует канонический command: $REPO_ROOT/command/$workflow.md" >&2
+        exit 1
+    fi
+done
 
 bash "$REPO_ROOT/sync-zcode-agents.sh"
 
@@ -94,6 +96,8 @@ for name in "${AGENTS[@]}"; do
     set_symlink "$ZCODE_ROOT/agents/$name.md" "$REPO_ZCODE_AGENTS_PATH/$name.md"
 done
 
-set_symlink "$OPENCODE_ROOT/commands/rr-loop.md" "$COMMAND_SOURCE_PATH"
+for workflow in "${WORKFLOWS[@]}"; do
+    set_symlink "$OPENCODE_ROOT/commands/$workflow.md" "$REPO_ROOT/command/$workflow.md"
+done
 
 echo "Agent assets synchronized."

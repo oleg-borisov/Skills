@@ -34,4 +34,3 @@ Verdict: PASS | FINDINGS
 ## Findings
 - file:line — hard|judgement — standard/smell — evidence — proposed fix
 ```
-
