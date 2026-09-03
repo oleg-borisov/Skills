@@ -18,7 +18,7 @@ AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser')
 REPO_SKILLS_PATH="$REPO_ROOT/skills"
 REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"
 REPO_ZCODE_AGENTS_PATH="$REPO_ROOT/.zcode/agents"
-WORKFLOWS=('rr-loop' 'rr-cascade-loop')
+WORKFLOWS=('rr-loop' 'rr-cascade-loop' 'rr-cascade-loop-fast')
 
 USER_AGENTS_ROOT="$HOME/.agents"
 OPENCODE_ROOT="$HOME/.config/opencode"

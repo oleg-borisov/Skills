@@ -19,7 +19,7 @@ $repoRoot = $PSScriptRoot
 $userProfilePath = [Environment]::GetFolderPath('UserProfile')
 $orcaAccountsRoot = Join-Path $env:APPDATA 'orca\codex-accounts'
 $agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser')
-$workflowNames = @('rr-loop', 'rr-cascade-loop')
+$workflowNames = @('rr-loop', 'rr-cascade-loop', 'rr-cascade-loop-fast')
 
 function Assert-PathWithin {
     param(
