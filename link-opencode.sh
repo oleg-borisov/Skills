@@ -56,7 +56,7 @@ set_symlink() {
         rm -f "$path"
     elif [[ -e "$path" ]]; then
         echo "Пропускаю (реальный файл/каталог, не симлинк): $path" >&2
-        return 1
+        return 0
     fi
 
     ln -s "$target" "$path"

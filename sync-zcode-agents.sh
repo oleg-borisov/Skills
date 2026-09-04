@@ -32,7 +32,8 @@ for agent_name in "${AGENTS[@]}"; do
                 ;;
         esac
         printf '%s\n' '---'
-        awk 'BEGIN { delimiters = 0 } /^---$/ { delimiters++; next } delimiters >= 2 { print }' "$source_path"
+        awk 'BEGIN { delimiters = 0 } /^---$/ { delimiters++; next } delimiters >= 2 { print }' "$source_path" \
+            | sed '${/^$/d;}'
     } > "$output_path"
 done
 
