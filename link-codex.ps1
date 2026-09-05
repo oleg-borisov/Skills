@@ -19,7 +19,8 @@ $repoRoot = $PSScriptRoot
 $userProfilePath = [Environment]::GetFolderPath('UserProfile')
 $orcaAccountsRoot = Join-Path $env:APPDATA 'orca\codex-accounts'
 $agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser')
-$workflowNames = @('rr-loop', 'rr-cascade-loop', 'rr-cascade-loop-fast')
+$workflowNames = @('rr-loop', 'rr-cascade-loop-fast')
+$retiredWorkflowNames = @('rr-cascade-loop')
 
 function Assert-PathWithin {
     param(
@@ -94,6 +95,24 @@ function Set-FileCopy {
     Write-Host "Copied: $Path"
 }
 
+function Remove-RetiredAsset {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Root
+    )
+
+    Assert-PathWithin -Path $Path -Root $Root
+    $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    if ($null -eq $item) { return }
+    if ($item.PSIsContainer -and -not $item.LinkType) {
+        Write-Warning "Пропускаю пользовательский каталог retired workflow: $Path"
+        return
+    }
+
+    Remove-Item -LiteralPath $Path -Force
+    Write-Host "Removed retired workflow asset: $Path"
+}
+
 & (Join-Path $repoRoot 'sync-codex-agents.ps1')
 & (Join-Path $repoRoot 'sync-zcode-agents.ps1')
 
@@ -111,6 +130,12 @@ $zcodeRoot = Join-Path $userProfilePath '.zcode'
 Set-DirectoryJunction -Path (Join-Path $repoRoot '.agents\skills') -Target $repoSkillsPath -Root $repoRoot
 Set-DirectoryJunction -Path (Join-Path $codexRoot 'agents') -Target $repoCodexAgentsPath -Root $codexRoot
 
+foreach ($workflowName in $retiredWorkflowNames) {
+    foreach ($hostRoot in @($userAgentsRoot, $claudeRoot, $opencodeRoot)) {
+        Remove-RetiredAsset -Path (Join-Path $hostRoot "skills\$workflowName") -Root $hostRoot
+    }
+}
+
 foreach ($workflowName in $workflowNames) {
     foreach ($hostRoot in @($userAgentsRoot, $claudeRoot, $opencodeRoot)) {
         Set-DirectoryJunction -Path (Join-Path $hostRoot "skills\$workflowName") -Target (Join-Path $repoSkillsPath $workflowName) -Root $hostRoot
@@ -121,6 +146,10 @@ foreach ($hostConfig in @(
     @{ Root = $claudeRoot; Agents = Join-Path $claudeRoot 'agents'; Commands = Join-Path $claudeRoot 'command' },
     @{ Root = $opencodeRoot; Agents = Join-Path $opencodeRoot 'agents'; Commands = Join-Path $opencodeRoot 'command' }
 )) {
+    foreach ($workflowName in $retiredWorkflowNames) {
+        Remove-RetiredAsset -Path (Join-Path $hostConfig.Commands "$workflowName.md") -Root $hostConfig.Root
+    }
+
     foreach ($agentName in $agentNames) {
         Set-FileCopy -Path (Join-Path $hostConfig.Agents "$agentName.md") -Source (Join-Path $repoMarkdownAgentsPath "$agentName.md") -Root $hostConfig.Root
     }
@@ -148,6 +177,10 @@ if (Test-Path -LiteralPath $orcaAccountsRoot) {
 
         foreach ($workflowName in $workflowNames) {
             Set-DirectoryJunction -Path (Join-Path $accountSkillsPath $workflowName) -Target (Join-Path $repoSkillsPath $workflowName) -Root $accountHomePath
+        }
+
+        foreach ($workflowName in $retiredWorkflowNames) {
+            Remove-RetiredAsset -Path (Join-Path $accountSkillsPath $workflowName) -Root $accountHomePath
         }
     }
 }

@@ -8,15 +8,14 @@
 | --- | --- |
 | agents/ | Канонические Markdown-контракты leaf-agents: implementer, verifier, standards-reviewer, spec-reviewer, reviser. |
 | agents/skill.reference | Служебное происхождение prompts, адаптированных из внешних skills. Агенты этот файл не читают. |
-| command/ | Primary slash-command adapters /rr-loop, /rr-cascade-loop и /rr-cascade-loop-fast для Claude Code и OpenCode. |
+| command/ | Primary slash-command adapters /rr-loop и /rr-cascade-loop-fast для Claude Code и OpenCode. |
 | skills/rr-loop/ | Канонический user-invoked primary skill с полным controller workflow. |
-| skills/rr-cascade-loop/ | Каскад готовых задач спецификации с совмещённым review. |
 | skills/rr-cascade-loop-fast/ | Каскад с исправлением findings в Implement следующей задачи. |
 | .codex/agents/ | Генерируемые TOML profiles только для leaf-agents. |
 | .zcode/agents/ | Генерируемые Markdown profiles только для ZCode leaf-agents. |
 | docs/agents/ | Инструкции интеграций, например issue-tracker.md. |
 
-Каждый `skills/rr-loop/SKILL.md`, `skills/rr-cascade-loop/SKILL.md` и `skills/rr-cascade-loop-fast/SKILL.md` — source of truth своего controller workflow. Отдельных custom controller-agents нет.
+Каждый `skills/rr-loop/SKILL.md` и `skills/rr-cascade-loop-fast/SKILL.md` — source of truth своего controller workflow. Отдельных custom controller-agents нет.
 
 ## Зависимости
 
@@ -46,7 +45,7 @@
 
 Скрипт сначала генерирует Codex profiles, затем:
 
-- подключает directory skills `rr-loop`, `rr-cascade-loop` и `rr-cascade-loop-fast` junction-ами;
+- подключает directory skills `rr-loop` и `rr-cascade-loop-fast` junction-ами;
 - копирует flat Markdown agents и command в Claude Code/OpenCode;
 - сохраняет ~/.codex/agents как junction на .codex/agents;
 - копирует TOML leaf-agents и подключает skill во все Orca/codex-accounts/*/home;
@@ -84,7 +83,7 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 
 - Get-Item для ~/.codex/agents возвращает junction на .codex/agents этого репозитория.
 - На Windows: `~/.zcode/agents/*.md` — копии `.zcode/agents/*.md`.
-- На macOS: `~/.config/opencode/agents/*.md`, `~/.zcode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, commands `rr-loop.md`, `rr-cascade-loop.md`, `rr-cascade-loop-fast.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
+- На macOS: `~/.config/opencode/agents/*.md`, `~/.zcode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, commands `rr-loop.md`, `rr-cascade-loop-fast.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять leaf-agents и отсутствуют reviewer/custom-agent rr-loop.
-- Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop, $rr-cascade-loop, /rr-cascade-loop-fast или $rr-cascade-loop-fast.
+- Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop-fast или $rr-cascade-loop-fast.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.

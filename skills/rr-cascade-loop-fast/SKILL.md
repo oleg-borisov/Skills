@@ -50,7 +50,7 @@ Finding states: PENDING, FIX_NOW, AWAITING_REVIEW, FIXED, DEFERRED_TO_TASK(<ID>)
 
 ## Запуск и recovery
 
-1. Определи branch и проверь нетерминальный ledger любого из rr-loop, rr-cascade-loop, rr-cascade-loop-fast для входной spec/task/branch до любых ранних выходов. Предложи продолжить его или явно сбросить; без решения не удаляй файл и не повторяй реализацию. При recovery сохрани BASE из ledger, сверь plan/sources, branch, HEAD, phase_results и pending_action; подтверждённые фазы не повторяй, незаписанный worker commit сначала сверяй с handoff. Изменение состава, требований или порядка требует подтверждения нового плана; необъяснимое расхождение Git-state → HUMAN_ATTENTION. Продолжай сохранённый workflow/фазу, шаги нового запуска ниже не повторяй.
+1. Определи branch и проверь нетерминальный ledger любого из rr-loop, rr-cascade-loop-fast для входной spec/task/branch до любых ранних выходов. Предложи продолжить его или явно сбросить; без решения не удаляй файл и не повторяй реализацию. При recovery сохрани BASE из ledger, сверь plan/sources, branch, HEAD, phase_results и pending_action; подтверждённые фазы не повторяй, незаписанный worker commit сначала сверяй с handoff. Изменение состава, требований или порядка требует подтверждения нового плана; необъяснимое расхождение Git-state → HUMAN_ATTENTION. Продолжай сохранённый workflow/фазу, шаги нового запуска ниже не повторяй.
 2. Прочитай вход: spec и/или каталог готовых tickets; для tracker — тело, комментарии, подзадачи и связи по `docs/agents/issue-tracker.md`. Найди исходную spec и acceptance criteria. Если все существующие подзадачи завершены — сообщи, что задач нет, и закончи без workers. Без готовой нарезки прочитай установленный `rr-loop/SKILL.md` и продолжай его обычный workflow в primary, без cascade ledger; самостоятельно `to-tickets` не запускай.
 3. Зафиксируй BASE = git rev-parse HEAD до правок. Каскад работает в одной текущей ветке с одним финальным merge.
 4. Составь plan из незавершённых готовых локальных tickets или подзадач tracker-spec. Для локальных tickets читай `Blocked by`, `Status`, acceptance criteria; порядок файлов — лишь tie-break. Объедини зависимости и порядок spec; независимые задачи упорядочь по spec, затем ID/path. Циклы, конфликт источников, неизвестные статусы/связи/spec → HUMAN_ATTENTION. Внешние задачи в plan автоматически не добавляй.
@@ -104,9 +104,14 @@ Completion: verifier вернул green с exact commands/results.
 
 Потребуй evidence и disposition по каждому carried ID: FIXED либо остаётся открытым; отсутствие повторного finding не означает исправление. Сохраняй axis и evidence. Не мерджи две оси в один verdict. Объединяй дубликаты MINOR с сохранением IDs и истории. Completion: findings запущенных осей и dispositions записаны, last_reviewed_head обновлён; задачи с завершённым обязательным review без active critical findings отмечены REVIEWED.
 
-Переход: на последней задаче → Decide. Иначе, если тот же critical finding без прогресса в двух последовательных review сквозь задачи → HUMAN_ATTENTION; явный отказ человека исправлять critical → STOPPED_BY_HUMAN, неразрешённое противоречие → HUMAN_ATTENTION. В остальных случаях checkpoint: незакрытые findings перенеси, текущая задача с active critical findings остаётся AWAITING_REVIEW; затем Task activation следующей задачи, без промежуточных Decide/Revise.
+Переход:
 
-### 4. Decide
+- Если текущая задача не последняя: тот же critical finding без прогресса в двух последовательных review сквозь задачи → HUMAN_ATTENTION; явный отказ человека исправлять critical → STOPPED_BY_HUMAN; неразрешённое противоречие → HUMAN_ATTENTION. Иначе перенеси незакрытые findings, оставь текущую задачу с active critical findings в AWAITING_REVIEW, сделай checkpoint и выполни Task activation следующей задачи. Следующий worker — fresh implementer.
+- Если текущая задача последняя: установи current_phase = Decide и перейди к §4.
+
+### 4. Decide — только для последней задачи
+
+Входное условие: current_task — последняя задача plan. Если условие не выполнено, допустимый переход определяет §3 Review: Task activation следующей задачи с fresh implementer.
 
 - Нет active BLOCKER/MAJOR → обработай MINOR/human items.
 - Есть active critical findings → Revise.

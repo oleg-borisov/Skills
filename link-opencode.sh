@@ -18,7 +18,8 @@ AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser')
 REPO_SKILLS_PATH="$REPO_ROOT/skills"
 REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"
 REPO_ZCODE_AGENTS_PATH="$REPO_ROOT/.zcode/agents"
-WORKFLOWS=('rr-loop' 'rr-cascade-loop' 'rr-cascade-loop-fast')
+WORKFLOWS=('rr-loop' 'rr-cascade-loop-fast')
+RETIRED_WORKFLOWS=('rr-cascade-loop')
 
 USER_AGENTS_ROOT="$HOME/.agents"
 OPENCODE_ROOT="$HOME/.config/opencode"
@@ -62,6 +63,25 @@ set_symlink() {
     ln -s "$target" "$path"
     echo "Symlink: $path -> $target"
 }
+
+# remove_retired_symlink <path>
+#  - Удаляет только ранее установленный симлинк; реальные пользовательские пути сохраняет.
+remove_retired_symlink() {
+    local path="$1"
+
+    if [[ -L "$path" ]]; then
+        rm -f "$path"
+        echo "Removed retired workflow link: $path"
+    elif [[ -e "$path" ]]; then
+        echo "Пропускаю пользовательский путь retired workflow: $path" >&2
+    fi
+}
+
+for workflow in "${RETIRED_WORKFLOWS[@]}"; do
+    remove_retired_symlink "$USER_AGENTS_ROOT/skills/$workflow"
+    remove_retired_symlink "$OPENCODE_ROOT/skills/$workflow"
+    remove_retired_symlink "$OPENCODE_ROOT/commands/$workflow.md"
+done
 
 shopt -s nullglob
 skill_entries=("$REPO_SKILLS_PATH"/*)
