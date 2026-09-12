@@ -15,8 +15,8 @@ disable-model-invocation: true
 - Цикл начинается в текущем checkout; рабочее окружение не меняется до merge reconciliation.
 - Каждый worker получает только spec paths, fixed points, finding IDs и свой phase contract. Не вставляй в prompt полную историю цикла.
 - Worker, который меняет код, коммитит свою фазу. Controller проверяет новый HEAD.
-- Review начинается только после green verifier gate. Reviewers не запускают checks.
-- QUALITY = GREEN: активных BLOCKER/MAJOR нет, final gate green, initial и обязательные delta-review завершены.
+- Review кодовых изменений начинается только после green verifier gate; документационные commits ревьюятся позже — следующим Review или make-up Review в final gate. Reviewers не запускают checks.
+- QUALITY = GREEN: активных BLOCKER/MAJOR нет, final gate green либо final verifier пропущен по §8.2 как неприменимый, initial и обязательные delta-review завершены; для отложенных документационных задач их роль выполняет make-up Review в final gate.
 - Итоговый отчёт разрешён после успешного final merge; cleanup ledger — только при terminal status.
 
 ## Leaf-agents
@@ -44,17 +44,17 @@ LEDGER = .scratch/rr-cascade-loop-fast/<branch>.md. Храни:
 - findings: stable ID, originating task, axis, severity, location, evidence, proposed fix, state, human decision; при объединении MINOR сохраняй исходные IDs и историю;
 - pending human action и completion decision.
 
-Finding states: PENDING, FIX_NOW, AWAITING_REVIEW, FIXED, DEFERRED_TO_TASK(<ID>), REJECTED(<reason>), HUMAN_ATTENTION. AWAITING_REVIEW означает заявленное worker исправление; FIXED ставится только после подтверждения reviewer. Task states: PENDING, ACTIVE, AWAITING_REVIEW, REVIEWED; это не tracker completion.
+Finding states: PENDING, FIX_NOW, AWAITING_REVIEW, FIXED, DEFERRED_TO_TASK(<ID>), REJECTED(<reason>), HUMAN_ATTENTION. AWAITING_REVIEW означает заявленное worker исправление; FIXED ставится только после подтверждения reviewer. Task states: PENDING, ACTIVE, AWAITING_REVIEW, REVIEWED, REVIEW_DEFERRED; это не tracker completion. REVIEW_DEFERRED — документационная задача, verify и review которой отложены до Review следующей кодовой задачи или final review каскада.
 
 Делай atomic checkpoint после фазы, worker commit, human decision и перед паузой. Не переписывай ledger после каждого finding. Ledger не коммитится.
 
 ## Запуск и recovery
 
-1. Определи branch и проверь нетерминальный ledger любого из rr-loop, rr-cascade-loop-fast для входной spec/task/branch до любых ранних выходов. Предложи продолжить его или явно сбросить; без решения не удаляй файл и не повторяй реализацию. При recovery сохрани BASE из ledger, сверь plan/sources, branch, HEAD, phase_results и pending_action; подтверждённые фазы не повторяй, незаписанный worker commit сначала сверяй с handoff. Изменение состава, требований или порядка требует подтверждения нового плана; необъяснимое расхождение Git-state → HUMAN_ATTENTION. Продолжай сохранённый workflow/фазу, шаги нового запуска ниже не повторяй.
+1. Определи branch и проверь нетерминальный ledger любого из rr-loop, rr-cascade-loop-fast для входной spec/task/branch до любых ранних выходов. Предложи продолжить его или явно сбросить; без решения не удаляй файл и не повторяй реализацию. При recovery сохрани BASE из ledger, сверь plan/sources, branch, HEAD, phase_results, task states (включая REVIEW_DEFERRED), last_reviewed_head осей и pending_action; подтверждённые фазы не повторяй, незаписанный worker commit сначала сверяй с handoff. Изменение состава, требований или порядка требует подтверждения нового плана; необъяснимое расхождение Git-state → HUMAN_ATTENTION. Продолжай сохранённый workflow/фазу, шаги нового запуска ниже не повторяй.
 2. Прочитай вход: spec и/или каталог готовых tickets; для tracker — тело, комментарии, подзадачи и связи по `docs/agents/issue-tracker.md`. Найди исходную spec и acceptance criteria. Если все существующие подзадачи завершены — сообщи, что задач нет, и закончи без workers. Без готовой нарезки прочитай установленный `rr-loop/SKILL.md` и продолжай его обычный workflow в primary, без cascade ledger; самостоятельно `to-tickets` не запускай.
 3. Зафиксируй BASE = git rev-parse HEAD до правок. Каскад работает в одной текущей ветке с одним финальным merge.
 4. Составь plan из незавершённых готовых локальных tickets или подзадач tracker-spec. Для локальных tickets читай `Blocked by`, `Status`, acceptance criteria; порядок файлов — лишь tie-break. Объедини зависимости и порядок spec; независимые задачи упорядочь по spec, затем ID/path. Циклы, конфликт источников, неизвестные статусы/связи/spec → HUMAN_ATTENTION. Внешние задачи в plan автоматически не добавляй.
-5. Проверь внешние blockers первой задачи; незавершённый или непроверяемый blocker останавливает запуск. План, явно допускающий red между задачами, также несовместим: green pre-review gate обязателен после каждой задачи.
+5. Проверь внешние blockers первой задачи; незавершённый или непроверяемый blocker останавливает запуск. План, явно допускающий red между задачами, также несовместим: green pre-review gate обязателен после каждой задачи, меняющей product code; для документационных задач верификация и review переносятся (§2, §3).
 6. Покажи название spec, список задач и порядок с зависимостями. Сохрани plan и pending_action подтверждения запуска в ledger с WORKFLOW_STATUS = WAITING_FOR_HUMAN, QUALITY = RED; до подтверждения workers и tracker activation не выполняй.
 7. После подтверждения установи RUNNING и выполни Task activation. В текущем диалоге продолжай сразу после ответа; resume <ledger> нужен только для recovery в новом контексте.
 
@@ -78,7 +78,9 @@ Completion: worker commit существует, scope и checks записаны
 
 ### 2. Pre-review gate
 
-Если `HEAD != last_full_green_head`, запусти fresh verifier в режиме pre-review с одним relevant full suite. Targeted checks уже выполнил implementer.
+Документационная задача — все changed files её worker commit(-ов) — файлы документации (`.md`/`.mdx`/`.rst`, docs-каталоги); любой другой файл, включая конфиги и комментарии в коде, делает задачу обычной. Для документационной задачи verifier не запускай и `last_full_green_head` не обновляй; её review переносится (§3).
+
+Иначе, если `HEAD != last_full_green_head`, запусти fresh verifier в режиме pre-review с одним relevant full suite. Targeted checks уже выполнил implementer.
 
 При green запиши `last_full_green_head = HEAD`. При `HEAD == last_full_green_head` gate уже закрыт.
 
@@ -87,6 +89,8 @@ Completion: worker commit существует, scope и checks записаны
 Completion: verifier вернул green с exact commands/results.
 
 ### 3. Review
+
+Документационную задачу в её собственной фазе Review не ревьюи: отметь её REVIEW_DEFERRED и переходи как задачу без новых active critical findings. Незакрытые carried findings переносятся дальше и получают disposition в будущем покрывающем Review или в make-up Review (§8.1); на make-up Review запрет не распространяется. Когда fixed point Review кодовой задачи покрывает изменения отложенных задач, после завершения review без новых active critical findings отметь их REVIEWED; при новых active critical findings отложенная задача остаётся REVIEW_DEFERRED до следующего покрывающего Review.
 
 Первый Review каждой задачи: параллельно fresh standards-reviewer и fresh spec-reviewer; fixed point каждой оси — её last_reviewed_head, для первого шага — общий BASE. Передай текущий scope, требования реализованной части spec и carried findings, включая ожидающие подтверждения исправлений и MINOR. Будущие требования не считай missing. На последней задаче spec-reviewer дополнительно сверяет покрытие всей spec, включая ранее завершённые задачи.
 
@@ -143,15 +147,16 @@ MINOR можно исправить попутно только если в то
 
 ### 8. Final gate and completion
 
-1. Если `HEAD != last_full_green_head`, запусти fresh verifier в final с одним relevant full suite; при green запиши `last_full_green_head = HEAD`.
-2. Если gate red, передай inventory fresh reviser. Для repair commit запиши affected_review_axes: Spec для изменения observable behavior, contracts или requirements; Standards для изменения структуры или conventions; пустой список допустим только для tests/build tooling, не меняющих product code. При неясной классификации запускай обе оси.
-3. После repair commit выполни delta-review только по affected_review_axes и повтори этот gate. При unchanged HEAD → HUMAN_ATTENTION. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
-4. При green gate не запускай review: каждый commit после initial Review уже прошёл обязательный delta-review или совмещённый Review следующей задачи, а verifier не меняет HEAD.
-5. Проверь ledger всего каскада: все задачи реализованы и проверены; нет PENDING, FIX_NOW, AWAITING_REVIEW, HUMAN_ATTENTION и active critical findings. Все carried findings получили review disposition.
-6. Установи QUALITY = GREEN.
-7. Установи WORKFLOW_STATUS = WAITING_FOR_HUMAN, запиши completion decision как pending_action, сделай checkpoint и спроси, выполнять ли merge в явно названную parent-ветку, tracker completion и cleanup task-worktree, если он был создан для этой задачи. Сохрани `merge_target_branch` в ledger. Без явного подтверждения не выполняй эти действия.
-8. После подтверждения выполни фазу Merge reconciliation.
-9. Только после успешного fast-forward merge сформируй итоговый отчёт, опубликуй его в tracker и выполни подтверждённое completion задач каскада и specification ID при их наличии; сохраняй результаты каждого действия для recovery и не повторяй успешные. При ошибке checkpoint → HUMAN_ATTENTION. После успешного completion установи WORKFLOW_STATUS = COMPLETED и удали ledger.
+1. Если остались задачи REVIEW_DEFERRED, выполни их Review по правилам §3: обе оси параллельно, fixed point каждой оси — её last_reviewed_head, для ни разу не ревьюившейся оси — общий BASE; на этом Review spec-reviewer дополнительно сверяет покрытие всей spec. При active critical findings перейди в Decide/Revise и вернись к этому шагу после их закрытия; если отложенные задачи остались REVIEW_DEFERRED, повтори их Review с обновлёнными fixed points. Иначе отметь отложенные задачи REVIEWED, а некритические findings make-up Review передай в Human decisions (§6).
+2. Если все задачи каскада документационные по классификации §2, final verifier не запускай. Иначе если `HEAD != last_full_green_head`, запусти fresh verifier в final с одним relevant full suite; при green запиши `last_full_green_head = HEAD`.
+3. Если gate red, передай inventory fresh reviser. Для repair commit запиши affected_review_axes: Spec для изменения observable behavior, contracts или requirements; Standards для изменения структуры или conventions; пустой список допустим только для tests/build tooling, не меняющих product code. При неясной классификации запускай обе оси.
+4. После repair commit выполни delta-review только по affected_review_axes и повтори этот gate. При unchanged HEAD → HUMAN_ATTENTION. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
+5. После шага 1 review не запускай независимо от того, выполнялся ли final verifier: каждый commit после initial Review уже прошёл обязательный delta-review, совмещённый Review следующей задачи или make-up Review отложенных задач шага 1, а verifier не меняет HEAD.
+6. Проверь ledger всего каскада: все задачи реализованы и проверены; нет PENDING, FIX_NOW, AWAITING_REVIEW, REVIEW_DEFERRED, HUMAN_ATTENTION и active critical findings. Все carried findings получили review disposition.
+7. Установи QUALITY = GREEN.
+8. Установи WORKFLOW_STATUS = WAITING_FOR_HUMAN, запиши completion decision как pending_action, сделай checkpoint и спроси, выполнять ли merge в явно названную parent-ветку, tracker completion и cleanup task-worktree, если он был создан для этой задачи. Сохрани `merge_target_branch` в ledger. Без явного подтверждения не выполняй эти действия.
+9. После подтверждения выполни фазу Merge reconciliation.
+10. Только после успешного fast-forward merge сформируй итоговый отчёт, опубликуй его в tracker и выполни подтверждённое completion задач каскада и specification ID при их наличии; сохраняй результаты каждого действия для recovery и не повторяй успешные. При ошибке checkpoint → HUMAN_ATTENTION. После успешного completion установи WORKFLOW_STATUS = COMPLETED и удали ledger.
 
 ### 9. Merge reconciliation
 
