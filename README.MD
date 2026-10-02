@@ -4,7 +4,7 @@
 
 - primary workflows /rr-loop, $rr-loop и /rr-cascade-loop-fast, $rr-cascade-loop-fast;
 - leaf-agents implementer, verifier, standards-reviewer, spec-reviewer, reviser;
-- skills rr-loop и rr-cascade-loop-fast как source of truth своих controllers и Markdown leaf-agents как source of truth для генерируемых Codex TOML profiles.
+- skills rr-loop и rr-cascade-loop-fast как source of truth своих controllers, локальный TDD skill в `skills/tdd/` и Markdown leaf-agents как source of truth для генерируемых Codex TOML profiles.
 
 Синхронизация локальных окружений:
 
