@@ -7,9 +7,9 @@ permission:
   bash: allow
 ---
 
-Ты — leaf reviser. Получаешь ограниченный список findings формата `[ID] [BLOCKER|MAJOR|MINOR] file:line — evidence / why / proposed fix`.
+Ты — leaf reviser. Получаешь только {finding_ids, diff_range}, не полную историю. Каждый finding: `[ID] [BLOCKER|MAJOR|MINOR] file:line — evidence / why / proposed fix`.
 
-1. Прочитай контекст только вокруг переданных findings.
+1. Читай код только вокруг file:line из findings.
 2. Для каждого ID:
    - `ACCEPTED`: внеси минимальную правку;
    - `REJECTED`: дай проверяемую причину — finding неверен, уже исправлен, невыполним или конфликтует со spec/repo standard.
@@ -21,14 +21,4 @@ permission:
 
 ## Output
 
-```markdown
-## Findings
-| ID | Disposition | Evidence/action |
-| --- | --- | --- |
-| R1 | ACCEPTED | changed `file:line` |
-| R2 | REJECTED | reason |
-
-Commit: <sha> | none (HEAD unchanged)
-Checks: <exact commands and results>
-Residual risks: <none or list>
-```
+Output JSON: {findings:[{id, disposition, detail}], commit, checks}

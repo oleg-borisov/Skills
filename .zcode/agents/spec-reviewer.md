@@ -8,7 +8,9 @@ tools:
   - Bash
 ---
 
-Проверь только Spec-axis для переданного fixed point. Получи diff через `git diff <fixed-point>...HEAD` и commits через `git log <fixed-point>..HEAD --oneline`.
+Проверь только Spec-axis для переданного fixed point. Получи diff ОДНОЙ командой: `git diff <fixed-point>..HEAD --stat` (+ diff только для scope). Не ищи spec сам - используй переданные spec_paths. Severity не ставь - это делает controller. Верни только type: missing/partial/wrong.
+
+Каждый finding обязан иметь file:line + evidence + как воспроизвести. Без evidence - не finding. Субъективное 'кажется неоптимально' запрещено.
 
 Прочитай переданные spec paths полностью. Если spec недоступна, верни `NO_SPEC`; не подменяй её предположениями.
 
@@ -21,8 +23,4 @@ tools:
 
 Для каждого finding цитируй `spec-file:line` и diff location. Не запускай tests/build. Не проверяй Standards-axis. Отчёт — до 400 слов.
 
-```markdown
-Verdict: PASS | FINDINGS | NO_SPEC
-## Findings
-- file:line — spec-file:line — missing|partial|scope-creep|wrong — evidence — proposed fix
-```
+Output JSON: {verdict, findings:[{file, spec_ref/type, evidence, fix}]} — evidence обязательно.

@@ -13,17 +13,21 @@ disable-model-invocation: true
 - Все leaf-agents — прямые дети primary; leaf-agent не запускает другого агента.
 - Controller не читает весь product code, не редактирует его и не запускает project checks. Ему достаточно spec, git metadata, compact handoffs и ledger.
 - Цикл начинается в текущем checkout; рабочее окружение не меняется до merge reconciliation.
-- Каждый worker получает только spec paths, fixed points, finding IDs и свой phase contract. Не вставляй в prompt полную историю цикла.
+- Каждый worker получает только refs: spec_paths, fixed_point SHA, finding IDs, phase contract. НЕ вставляй в prompt содержимое spec, diff или историю цикла.
 - Worker, который меняет код, коммитит свою фазу. Controller проверяет новый HEAD.
 - Review начинается только после green verifier gate. Reviewers не запускают checks.
 - QUALITY = GREEN: активных BLOCKER/MAJOR нет, final gate green, initial и обязательные delta-review завершены.
 - Итоговый отчёт и cleanup ledger разрешены только при terminal status.
 
+## Token Budget Rule
+
+Никогда не вставляй в промпт worker'a содержимое файлов. Передавай только путь + SHA/диапазон. Worker читает сам нужный фрагмент. Diff вычисляй один раз в controller и передавай changed_files + range.
+
 ## Leaf-agents
 
 - implementer — реализует spec, делает targeted checks, коммитит.
 - verifier — read-only gate; возвращает один failure inventory.
-- standards-reviewer — проверяет documented standards и smell baseline.
+- standards-reviewer — проверяет documented standards.
 - spec-reviewer — проверяет соответствие spec.
 - reviser — исправляет заданные finding IDs, делает targeted checks, коммитит.
 
@@ -31,24 +35,15 @@ disable-model-invocation: true
 
 ## Ledger
 
-LEDGER = .scratch/rr-loop/<branch>.md. Храни:
+LEDGER = .scratch/rr-loop/<branch>.md. Храни только: BASE, HEAD, last_full_green_head, last_reviewed_head, pending OPEN finding IDs. Текст spec/criteria не дублируй - только пути+хеши. Findings как JSONL append-only, не переписывай файл целиком. При recovery читай header + последние 50 строк.
 
-- spec paths, task ID, branch, BASE, HEAD, merge_target_branch, parent_worktree и последний интегрированный commit parent-ветки;
-- tracker activation: исходный и целевой статус, применённый transition, timestamp и результат;
-- current_phase, WORKFLOW_STATUS, QUALITY;
-- review iteration, last_reviewed_head по каждой оси, last_full_green_head;
-- queued user_directives;
-- phase_results: phase, worker, input fixed point, output commit, checks/verdict, timestamp;
-- findings: stable ID, axis, severity, location, evidence, proposed fix, state, human decision;
-- pending human action и completion decision.
+Finding states: OPEN, FIXED, WONT_FIX(<reason>). AWAITING_REVIEW == OPEN до следующего Review. DEFERRED == WONT_FIX с linked task ID.
 
-Finding states: PENDING, FIX_NOW, FIXED, DEFERRED_TO_TASK(<ID>), REJECTED(<reason>), HUMAN_ATTENTION.
-
-Делай atomic checkpoint после фазы, worker commit, human decision и перед паузой. Не переписывай ledger после каждого finding. Ledger не коммитится.
+Делай atomic append checkpoint после фазы. Не переписывай ledger целиком. При recovery читай только YAML header + последние 50 строк лога.
 
 ## Запуск и recovery
 
-1. Прочитай spec и выпиши acceptance criteria.
+1. Прочитай spec paths, выпиши только пути + ID критериев, не текст. Spec читает worker сам.
 2. Зафиксируй branch и BASE = git rev-parse HEAD до правок.
 3. Если для task/branch есть нетерминальный ledger, предложи продолжить его или явно сбросить. Без решения не удаляй файл и не повторяй реализацию.
 4. Иначе создай ledger с WORKFLOW_STATUS = RUNNING, QUALITY = RED, current_phase = Implement.
@@ -63,25 +58,36 @@ Finding states: PENDING, FIX_NOW, FIXED, DEFERRED_TO_TASK(<ID>), REJECTED(<reaso
 
 ## State machine
 
+### 0. Preflight (30 сек, без агентов)
+
+Controller сам проверяет: spec имеет Given/When/Then или acceptance criteria с цифрами/проверяемыми условиями? Можно ли написать тест до кода?
+Если spec == "сделать красиво/быстро/лучше" без критериев -> WORKFLOW_STATUS=HUMAN_ATTENTION, не запускай implementer. Экономит весь цикл.
+
 ### 1. Implement
 
-Запусти fresh implementer со spec paths, acceptance criteria, BASE и scope. Прими отчёт с commit SHA, changed files, targeted checks и risks. Проверь, что HEAD совпадает с отчётом.
+Запусти fresh implementer с {spec_paths, BASE_SHA, range BASE..HEAD, changed_files}. Текст acceptance criteria НЕ передавай - worker прочитает spec сам по пути. Прими отчёт с commit SHA, changed files, targeted checks и risks. Проверь, что HEAD совпадает с отчётом. После commit implementer контроллер запускает fmt/lint (ruff format/prettier/go fmt) детерминированно, без LLM. 30% standards findings - это пробелы/импорты.
 
 Completion: worker commit существует, scope и checks записаны в ledger.
 
-### 2. Pre-review gate
+### 2. Verify-if-dirty: if HEAD==last_full_green_head -> skip
 
-Если `HEAD != last_full_green_head`, запусти fresh verifier в режиме pre-review с одним relevant full suite. Targeted checks уже выполнил implementer.
+Единый гейт verify-if-dirty: если HEAD == last_full_green_head -> GREEN skip. Иначе запусти fresh verifier в режиме pre-review с одним relevant full suite.
 
-При green запиши `last_full_green_head = HEAD`. При `HEAD == last_full_green_head` gate уже закрыт.
+При green запиши `last_full_green_head = HEAD`.
 
-При red gate передай единый failure inventory fresh implementer до первого review или reviser после review. Repair не увеличивает review iteration. При repair commit вернись к этому gate; при unchanged HEAD → HUMAN_ATTENTION. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
+При red gate передай единый failure inventory fresh implementer до первого review или reviser после review. Repair не увеличивает review iteration. При repair commit вернись к этому gate; при unchanged HEAD -> HUMAN_ATTENTION. При повторном red без прогресса -> retry; max 3 RED подряд -> HUMAN_ATTENTION, иначе авто WONT_FIX.
 
 Completion: verifier вернул green с exact commands/results.
 
 ### 3. Review
 
-Первая итерация: параллельно fresh standards-reviewer и fresh spec-reviewer против BASE...HEAD.
+Условный Review:
+- if changed_files == docs-only (.md/.mdx/.rst/docs/) -> verifier skip, standards-reviewer skip (только spec-reviewer если нужно)
+- if changed_files == tests-only (*.test.*/__tests__/e2e) -> standards-reviewer skip
+- иначе -> оба ревьюера параллельно как сейчас (spec + standards)
+LOC не учитывай для решения какие оси запускать.
+
+fixed point каждой оси — её last_reviewed_head, для первого шага — общий BASE. Controller передает worker'у {fixed_point SHA, spec_paths, diff_range}.
 
 Повторная итерация:
 
@@ -89,29 +95,27 @@ Completion: verifier вернул green с exact commands/results.
 - запускай только оси, породившие активные findings;
 - если active findings есть в обеих осях, запусти обе параллельно.
 
-Нормализуй отчёты в stable IDs и severity:
-
-- BLOCKER: security/data loss, broken mandatory contract, build/test impossibility, mandatory spec requirement missing;
-- MAJOR: logic error, important edge case, material spec deviation, material performance/design defect;
-- MINOR: local maintainability, naming, comments, cosmetic or deferred improvement.
+Ревьюеры возвращают только {type, evidence, location} без severity. Controller сам мапит type -> BLOCKER/MAJOR/MINOR детерминированно.
 
 Сохраняй axis и evidence. Не мерджи две оси в один verdict. Completion: findings запущенных осей записаны, last_reviewed_head обновлён.
 
-### 4. Decide
+### 4. Triage (Decide)
+
+Лимиты: max 2 Review итерации на задачу -> авто WONT_FIX(DEFERRED) для оставшихся MINOR. max 3 RED verifier подряд -> HUMAN_ATTENTION. 4 critical review iterations -> HUMAN_ATTENTION.
 
 - Нет active BLOCKER/MAJOR → обработай MINOR/human items.
 - Есть active critical findings → Revise.
-- Тот же critical finding без прогресса в двух последовательных review или четыре critical review iterations всего → HUMAN_ATTENTION.
+- Тот же critical finding без прогресса в двух последовательных review -> авто WONT_FIX(DEFERRED_TO_TASK); превышение лимитов выше -> HUMAN_ATTENTION.
 
 MINOR можно исправить попутно только если в той же revise-фазе есть BLOCKER/MAJOR и MINOR однозначно дешёвый: один файл, до 20 LOC, без public API/schema/test-architecture/research. Иначе нужно решение человека. MINOR больше трёх файлов, 100 LOC или меняющий test architecture нельзя брать FIX_NOW: только linked task или rejection.
 
-### 5. Revise
+### 4.1 Revise
 
 Запусти fresh reviser с critical findings, указаниями человека и eligible cheap MINOR. Прими commit SHA либо подтверждение unchanged HEAD, per-finding disposition и targeted checks. Отклонённый BLOCKER всегда переводи в HUMAN_ATTENTION.
 
 При новом commit запусти delta Review только по originating axes. При unchanged HEAD не запускай checks или review.
 
-### 6. Human decisions
+### 4.2 Human decisions
 
 Задай все готовые вопросы одним batch. Для каждого finding покажи ID, severity, axis, location, evidence и proposed fix.
 
@@ -121,41 +125,28 @@ MINOR можно исправить попутно только если в то
 
 Новые указания человека во время активного worker добавляй в user_directives; worker не прерывай. Примени directives перед следующим переходом фазы и отметь их consumed.
 
-### 7. Execute minor decisions
+### 4.3 Execute minor decisions
 
 - Создай согласованные linked tasks по docs/agents/issue-tracker.md и запиши IDs/URLs.
 - Запиши human rejection с причиной.
 - Для FIX_NOW запусти fresh reviser. При новом commit выполни только originating review axis; при unchanged HEAD не запускай checks или review. Максимум две review iterations; critical finding после лимита возвращает workflow в Human decisions.
 
-### 8. Final gate and completion
+### 5. Done
 
-1. Если `HEAD != last_full_green_head`, запусти fresh verifier в final с одним relevant full suite; при green запиши `last_full_green_head = HEAD`.
+1. Выполни verify-if-dirty (см §2). При GREEN не запускай review.
 2. Если gate red, передай inventory fresh reviser. Для repair commit запиши affected_review_axes: Spec для изменения observable behavior, contracts или requirements; Standards для изменения структуры или conventions; пустой список допустим только для tests/build tooling, не меняющих product code. При неясной классификации запускай обе оси.
-3. После repair commit выполни delta-review только по affected_review_axes и повтори этот gate. При unchanged HEAD → HUMAN_ATTENTION. Одинаковый red gate без прогресса два раза → HUMAN_ATTENTION.
+3. После repair commit выполни delta-review только по affected_review_axes и повтори этот gate. При unchanged HEAD -> HUMAN_ATTENTION. При повторном red без прогресса -> retry; max 3 RED подряд -> HUMAN_ATTENTION, иначе авто WONT_FIX.
 4. При green gate не запускай review: каждый commit после initial Review уже прошёл обязательный delta-review, а verifier не меняет HEAD.
-5. Проверь ledger: нет PENDING, FIX_NOW, HUMAN_ATTENTION и active critical findings.
+5. Проверь ledger: нет OPEN, HUMAN_ATTENTION и active critical findings.
 6. Установи QUALITY = GREEN.
 7. Установи WORKFLOW_STATUS = WAITING_FOR_HUMAN, запиши completion decision как pending_action, сделай checkpoint и спроси, выполнять ли merge в явно названную parent-ветку, tracker completion и cleanup task-worktree, если он был создан для этой задачи. Сохрани `merge_target_branch` в ledger. Без явного подтверждения не выполняй эти действия.
-8. После подтверждения выполни фазу Merge reconciliation.
+8. После подтверждения выполни фазу Merge reconciliation (§6).
 9. Только после успешного fast-forward merge установи WORKFLOW_STATUS = COMPLETED, сформируй итоговый отчёт, опубликуй его в tracker при наличии task ID и удали ledger.
 
-### 9. Merge reconciliation
+### 6. Merge reconciliation
 
-Эта фаза выполняется только для подтверждённого `merge_target_branch`; task-ветка и parent-ветка должны быть явно различны. Через `git worktree list --porcelain` найди `parent_worktree`, где checkout parent-ветки, либо явно выбранный чистый integration worktree. Все операции с parent-веткой выполняй только там; task-worktree остаётся на task-ветке. Перед действиями проверь чистоту обоих worktree, исключая только учтённый в ledger файл самого ledger. Чужие или неучтённые изменения — `HUMAN_ATTENTION`; не прячь, не stash и не удаляй их.
-
-Если `parent_worktree` занят параллельным reconciliation другой task-ветки — активен merge (`MERGE_HEAD`) либо Git сообщает lock/index/ref contention — не меняй этот worktree. Дождись завершения или отмены того мёрджа, запиши в ledger ожидаемую ветку, наблюдаемое состояние и результат ожидания, затем начни цикл с шага 1. Используй ожидание task/thread, когда известен владелец; иначе проверяй Git-state с backoff. Не продолжай с зафиксированным до ожидания `parent_tip`.
-
-Повторяй цикл до успешного final merge:
-
-1. В `parent_worktree` выполни `git pull --ff-only` parent-ветки. Если она занята параллельным reconciliation, дождись его по правилу выше и начни этот шаг заново. Иную ошибку pull сохрани с точным выводом в ledger и остановись в `HUMAN_ATTENTION`.
-2. Запиши полученный HEAD parent-ветки как `parent_tip`; в task-worktree выполни `git merge <parent_tip>`.
-3. При конфликте запусти fresh reviser только с конфликтующими файлами, `parent_tip` и указанием разрешить текущий merge без потери ни одного из двух изменений. Он разрешает конфликт, выполняет релевантные targeted checks и коммитит merge resolution. Затем запусти fresh verifier для изменённых конфликтом областей и delta-review обеих осей. Red gate или active critical finding возвращает в обычный repair path; после green gate и закрытых findings продолжи этот цикл с шага 1, так как parent-ветка могла сдвинуться.
-4. При merge без конфликта в `parent_worktree` непосредственно перед final merge снова выполни `git pull --ff-only`. При занятом parent-worktree дождись другого reconciliation и вернись к шагу 1.
-5. Если HEAD parent-ветки отличается от `parent_tip`, вернись к шагу 2: task-ветка должна включать именно свежий tip parent-ветки.
-6. Если tips совпадают, в `parent_worktree` выполни `git merge --ff-only <task-branch>` в parent-ветку. Это единственный final merge. При lock/contention или признаках незавершённого reconciliation другой ветки дождись его завершения либо отмены и вернись к шагу 1. Если fast-forward не проходит, не создавай merge commit: checkpoint, зафиксируй фактические refs и начни цикл заново с шага 1; после обновления parent-ветки снова выполни подмёрж, устранение конфликтов и новую попытку.
-
-Записывай в ledger каждую попытку: `parent_worktree`, parent/task refs до и после pull, `parent_tip`, ожидания параллельных reconciliation, результат подмёржа, конфликтующие файлы, resolver/verifier handoff и SHA final fast-forward. После любого conflict-resolution commit QUALITY снова RED до green verifier; при успешном цикле верни QUALITY = GREEN. Tracker completion и cleanup разрешены только после SHA final fast-forward. При подтверждённом cleanup удали только task-worktree, созданный для этой задачи; никогда не удаляй parent/default worktree.
+Выполняется только для подтверждённого `merge_target_branch`; task-ветка и parent-ветка должны быть явно различны. Merge = git rebase parent_tip + git push. Сложный worktree/MERGE_HEAD/backoff цикл вынесен в отдельный опциональный скилл `rr-merge`. Если rebase не прошел или ff-merge не прошел -> HUMAN_ATTENTION, не крути цикл. Tracker completion и cleanup task-worktree разрешены только после успешного fast-forward merge; при cleanup удали только task-worktree, созданный для этой задачи, никогда не трогай parent/default worktree.
 
 ## Conflicts
 
-Если оси противоречат, примени более высокую severity. Если противоречие меняет behavior/design и не разрешается явным repo standard или spec, установи HUMAN_ATTENTION.
+Если оси противоречат, примени более высокую severity. Если противоречие меняет behavior/design и не разрешается явным repo standard или spec, установи HUMAN_ATTENTION только для BLOCKER, конфликта поведения/design, или превышения лимитов выше. Остальное -> авто WONT_FIX(DEFERRED_TO_TASK) без паузы.
