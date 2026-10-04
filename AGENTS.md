@@ -61,9 +61,10 @@ File symlinks не используются: целевые hosts их не по
     ./link-opencode.sh
 
 macOS-аналог junction — это symlink; на macOS hosts корректно читают симлинки,
-поэтому всё (skills, agents, command) подключается ссылками и повторная установка
-после правок не нужна. ZCode subagents в `~/.zcode/agents` также подключаются
-симлинками. Точно так же изменяются только известные rr-loop assets,
+поэтому skills, OpenCode agents и command подключаются ссылками и повторная установка
+после правок не нужна. Исключение — ZCode subagents в `~/.zcode/agents`:
+симлинки subagent-профилей ZCode на macOS не читает, поэтому файлы копируются.
+Точно так же изменяются только известные rr-loop assets,
 существующие пользовательские файлы (например остальные skills в ~/.agents) не трогаются.
 Сфера ограничена OpenCode (~/.config/opencode), ZCode (~/.zcode) и каноническим ~/.agents.
 
@@ -85,8 +86,8 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 ## Проверка
 
 - Get-Item для ~/.codex/agents возвращает junction на .codex/agents этого репозитория.
-- На Windows: `~/.zcode/agents/*.md` — копии `.zcode/agents/*.md`.
-- На macOS: `~/.config/opencode/agents/*.md`, `~/.zcode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, commands `rr-loop.md`, `rr-cascade-loop-fast.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
+- На Windows и macOS: `~/.zcode/agents/*.md` — копии `.zcode/agents/*.md` (ZCode subagent-профили симлинки не читают).
+- На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, commands `rr-loop.md`, `rr-cascade-loop-fast.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять leaf-agents и отсутствуют reviewer/custom-agent rr-loop.
 - Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop-fast, $rr-cascade-loop-fast, /tdd или $tdd.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.

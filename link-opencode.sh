@@ -2,10 +2,12 @@
 #
 # Синхронизирует rr-loop assets с macOS-хостами через symlink (аналог junction).
 #
-# Отличие от link-codex.ps1: на macOS всё (skills, agents, command) подключается
-# симлинками — правки в репозитории подхватываются автоматически, повторная
-# установка не нужна. Скрипт изменяет только известные rr-loop assets и
-# сохраняет остальные пользовательские файлы.
+# Отличие от link-codex.ps1: на macOS skills, OpenCode agents и command
+# подключаются симлинками — правки в репозитории подхватываются автоматически,
+# повторная установка не нужна. Исключение — ZCode subagent-профили:
+# ZCode на macOS не читает симлинки, поэтому ~/.zcode/agents/*.md копируются.
+# Скрипт изменяет только известные rr-loop assets и сохраняет остальные
+# пользовательские файлы.
 #
 # Сфера: OpenCode (~/.config/opencode), ZCode (~/.zcode) и канонический ~/.agents.
 
@@ -64,6 +66,31 @@ set_symlink() {
     echo "Symlink: $path -> $target"
 }
 
+# copy_file <path> <source>
+#  - Копирует канонический файл поверх уже установленной копии.
+copy_file() {
+    local path="$1"
+    local source="$2"
+
+    if [[ ! -f "$source" ]]; then
+        echo "Ошибка: источник отсутствует: $source" >&2
+        exit 1
+    fi
+
+    local parent
+    parent="$(dirname "$path")"
+    if [[ ! -d "$parent" ]]; then
+        mkdir -p "$parent"
+    fi
+
+    if [[ -L "$path" ]]; then
+        rm -f "$path"
+    fi
+
+    cp -f "$source" "$path"
+    echo "Copied: $path"
+}
+
 # remove_retired_symlink <path>
 #  - Удаляет только ранее установленный симлинк; реальные пользовательские пути сохраняет.
 remove_retired_symlink() {
@@ -113,7 +140,7 @@ done
 
 for name in "${AGENTS[@]}"; do
     set_symlink "$OPENCODE_ROOT/agents/$name.md" "$REPO_MARKDOWN_AGENTS_PATH/$name.md"
-    set_symlink "$ZCODE_ROOT/agents/$name.md" "$REPO_ZCODE_AGENTS_PATH/$name.md"
+    copy_file "$ZCODE_ROOT/agents/$name.md" "$REPO_ZCODE_AGENTS_PATH/$name.md"
 done
 
 for workflow in "${WORKFLOWS[@]}"; do
