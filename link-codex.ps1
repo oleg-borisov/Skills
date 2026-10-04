@@ -115,6 +115,7 @@ function Remove-RetiredAsset {
 
 & (Join-Path $repoRoot 'sync-codex-agents.ps1')
 & (Join-Path $repoRoot 'sync-zcode-agents.ps1')
+& (Join-Path $repoRoot 'link-gemini.ps1')
 
 $repoSkillsPath = Join-Path $repoRoot 'skills'
 $repoMarkdownAgentsPath = Join-Path $repoRoot 'agents'
