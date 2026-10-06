@@ -7,7 +7,7 @@ description: Test-driven development. Use when the user wants to build features 
 
 TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle: consult them before and during the loop, not after.
 
-When exploring the codebase, read `CONTEXT.md` (if it exists) so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching.
+When exploring the codebase, read `GLOSSARY.md` (if it exists) so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching.
 
 ## What a good test is
 
@@ -45,7 +45,7 @@ When the shape of that interface is itself in question (how deep the module is, 
 
 - **Red before green.** Write the failing test first, then only enough code to pass it. The failure must come from the missing or wrong behavior, not compilation, setup, or an unrelated assertion. Don't anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Independent oracle.** Derive expected behavior from the request, a contract, or a worked example—not by calling the implementation, repeating its algorithm, or freezing unexplained current output.
+- **Independent oracle.** Derive expected behavior from the request, a contract, or a worked example, not by calling the implementation, repeating its algorithm, or freezing unexplained current output.
 - **Challenge the test.** Before keeping it, name one small realistic production mutation and confirm the test would fail. Use actual mutation tooling only when it is safe and reversible; a reasoned check is enough otherwise.
 - **Verify test mechanics.** Check framework APIs against the repository's imports, dependencies, and configuration. Await async operations and assertions, and ensure the behavior under test cannot be bypassed by conditional or swallowed checks.
 - **Refactoring is not part of the loop.** It belongs to the review stage (see the `code-review` skill), not the red → green implementation cycle.
