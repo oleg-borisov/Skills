@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 $sourceRoot = Join-Path $repoRoot 'agents'
 $outputRoot = Join-Path $repoRoot '.zcode\agents'
-$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser')
+$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser', 'scout')
 $readOnlyAgents = @('verifier', 'standards-reviewer', 'spec-reviewer')
 $readOnlyTools = @('Read', 'Grep', 'Glob', 'Bash')
 

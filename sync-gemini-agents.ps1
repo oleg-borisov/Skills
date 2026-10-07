@@ -9,7 +9,7 @@ $repoRoot = $PSScriptRoot
 $sourceRoot = Join-Path $repoRoot 'agents'
 $pluginDir = Join-Path $repoRoot '.gemini\plugins\serenity-agents'
 $outputAgentsDir = Join-Path $pluginDir 'agents'
-$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser')
+$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser', 'scout')
 
 if (-not (Test-Path -LiteralPath $outputAgentsDir)) {
     New-Item -ItemType Directory -Path $outputAgentsDir -Force | Out-Null
@@ -20,7 +20,7 @@ $pluginManifest = [ordered]@{
     name = "serenity-agents"
     displayName = "Serenity Workflow Agents"
     version = "1.0.0"
-    description = "Комплект специализированных субагентов для цикла разработки rr-loop (implementer, verifier, standards-reviewer, spec-reviewer, reviser)."
+    description = "Комплект специализированных субагентов для цикла разработки rr-loop (implementer, verifier, standards-reviewer, spec-reviewer, reviser, scout)."
     suggestedPrompts = @(
         "Run implementer to build work from spec",
         "Run verifier gate for test suite",
@@ -43,6 +43,7 @@ $readmeContent = @"
 - `standards-reviewer`: Read-only Standards-axis review заданного diff по repo standards.
 - `spec-reviewer`: Read-only Spec-axis review заданного diff против originating spec.
 - `reviser`: Исправляет заданные rr-loop findings, выполняет targeted checks и коммитит правки.
+- `scout`: Опциональный exploration-агент: однократно исследует код по вопросам контроллера и пишет заметки в notes_dir.
 "@
 
 Set-Content -LiteralPath (Join-Path $pluginDir 'README.md') -Value $readmeContent -Encoding utf8NoBOM

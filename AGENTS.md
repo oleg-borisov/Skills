@@ -6,7 +6,7 @@
 
 | Каталог | Назначение |
 | --- | --- |
-| agents/ | Канонические Markdown-контракты leaf-agents: implementer, verifier, standards-reviewer, spec-reviewer, reviser. |
+| agents/ | Канонические Markdown-контракты leaf-agents: implementer, verifier, standards-reviewer, spec-reviewer, reviser, scout (опциональный exploration-агент). |
 | agents/skill.reference | Служебное происхождение prompts, адаптированных из внешних skills. Агенты этот файл не читают. |
 | command/ | Primary slash-command adapters /rr-loop и /rr-cascade-loop-fast для Claude Code и OpenCode. |
 | skills/rr-loop/ | Канонический user-invoked primary skill с полным controller workflow. |
@@ -24,7 +24,7 @@
 
 - Leaf-agents используют доступные системные skills только по явным ссылкам в своих контрактах, например /tdd.
 - Все workflow ожидают docs/agents/issue-tracker.md, когда нужны tracker operations.
-- Все пять named leaf-agents обязательны; при отсутствии роли или механизма subagents workflow останавливается с BLOCKED_UNSUPPORTED_HOST.
+- Все пять named leaf-agents обязательны; при отсутствии роли или механизма subagents workflow останавливается с BLOCKED_UNSUPPORTED_HOST. scout — опциональный шестой: его недоступность даёт NOT_APPLICABLE Exploration, а не BLOCKED.
 
 ## Генерация Codex profiles
 
@@ -88,6 +88,6 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 - Get-Item для ~/.codex/agents возвращает junction на .codex/agents этого репозитория.
 - На Windows и macOS: `~/.zcode/agents/*.md` — копии `.zcode/agents/*.md` (ZCode subagent-профили симлинки не читают).
 - На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, commands `rr-loop.md`, `rr-cascade-loop-fast.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
-- В agent-каталогах присутствуют пять leaf-agents и отсутствуют reviewer/custom-agent rr-loop.
+- В agent-каталогах присутствуют пять обязательных leaf-agents и опциональный scout; reviewer/custom-agent rr-loop отсутствуют.
 - Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop-fast, $rr-cascade-loop-fast, /tdd или $tdd.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.

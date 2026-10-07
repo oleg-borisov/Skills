@@ -5,7 +5,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_ROOT="$REPO_ROOT/agents"
 OUTPUT_ROOT="$REPO_ROOT/.zcode/agents"
-AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser')
+AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser' 'scout')
 
 mkdir -p "$OUTPUT_ROOT"
 

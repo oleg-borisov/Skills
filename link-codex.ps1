@@ -18,7 +18,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 $userProfilePath = [Environment]::GetFolderPath('UserProfile')
 $orcaAccountsRoot = Join-Path $env:APPDATA 'orca\codex-accounts'
-$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser')
+$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser', 'scout')
 $workflowNames = @('rr-loop', 'rr-cascade-loop-fast')
 $retiredWorkflowNames = @('rr-cascade-loop')
 

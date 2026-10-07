@@ -35,6 +35,11 @@ $profiles = [ordered]@{
         ReasoningEffort = 'medium'
         SandboxMode = 'workspace-write'
     }
+    'scout' = @{
+        Model = 'gpt-5.6-terra'
+        ReasoningEffort = 'medium'
+        SandboxMode = 'workspace-write'
+    }
 }
 
 function ConvertTo-TomlString {
