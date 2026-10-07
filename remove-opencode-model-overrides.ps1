@@ -7,13 +7,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$models = [ordered]@{
-    'implementer'         = 'omniroute/coder'
-    'verifier'            = 'omniroute/coder'
-    'reviser'             = 'omniroute/coder'
-    'standards-reviewer'  = 'omniroute/architector'
-    'spec-reviewer'       = 'omniroute/architector'
-}
+$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser', 'scout')
 
 function Read-JsonConfig {
     param([Parameter(Mandatory)][string]$Path)
@@ -36,45 +30,38 @@ function Read-JsonConfig {
     return ,([System.Text.Json.Nodes.JsonObject]$node)
 }
 
-function Get-OrCreateObjectProperty {
-    param(
-        [Parameter(Mandatory)][System.Text.Json.Nodes.JsonObject]$Parent,
-        [Parameter(Mandatory)][string]$Name
-    )
-
-    $existing = $null
-    [void]$Parent.TryGetPropertyValue($Name, [ref]$existing)
-    if ($null -eq $existing) {
-        $created = [System.Text.Json.Nodes.JsonObject]::new()
-        $Parent.Add($Name, $created)
-        return ,$created
-    }
-
-    if ($existing -isnot [System.Text.Json.Nodes.JsonObject]) {
-        throw "Поле '$Name' должно быть JSON object"
-    }
-
-    return ,([System.Text.Json.Nodes.JsonObject]$existing)
-}
-
 $config = Read-JsonConfig -Path $ConfigPath
-$agents = Get-OrCreateObjectProperty -Parent $config -Name 'agents'
 
-foreach ($agentName in $models.Keys) {
-    $agent = Get-OrCreateObjectProperty -Parent $agents -Name $agentName
-    $modelValue = [System.Text.Json.Nodes.JsonValue]::Create([string]$models[$agentName])
+$agentsNode = $null
+if ($config.TryGetPropertyValue('agents', [ref]$agentsNode) -and $agentsNode -is [System.Text.Json.Nodes.JsonObject]) {
+    $agents = [System.Text.Json.Nodes.JsonObject]$agentsNode
+    foreach ($agentName in $agentNames) {
+        $agentNode = $null
+        if (-not $agents.TryGetPropertyValue($agentName, [ref]$agentNode)) { continue }
+        if ($agentNode -isnot [System.Text.Json.Nodes.JsonObject]) { continue }
 
-    $currentModel = $null
-    if ($agent.TryGetPropertyValue('model', [ref]$currentModel) -and $null -ne $currentModel) {
-        $currentModel.ReplaceWith($modelValue)
+        $agent = [System.Text.Json.Nodes.JsonObject]$agentNode
+        if ($agent.Remove('model')) {
+            Write-Host "Removed model: agents.$agentName"
+        }
+
+        if ($agent.Count -eq 0) {
+            $agents.Remove($agentName) | Out-Null
+            Write-Host "Removed empty section: agents.$agentName"
+        }
     }
-    else {
-        $agent['model'] = $modelValue
+
+    if ($agents.Count -eq 0) {
+        $config.Remove('agents') | Out-Null
+        Write-Host "Removed empty section: agents"
     }
+}
+else {
+    Write-Host "No 'agents' section in $ConfigPath, nothing to clean."
 }
 
 $parent = Split-Path -Parent $ConfigPath
-if ($PSCmdlet.ShouldProcess($ConfigPath, 'Установить model-overrides rr-loop агентов')) {
+if ($PSCmdlet.ShouldProcess($ConfigPath, 'Удалить model-overrides rr-loop агентов')) {
     if (-not (Test-Path -LiteralPath $parent)) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
@@ -90,8 +77,4 @@ if ($PSCmdlet.ShouldProcess($ConfigPath, 'Установить model-overrides r
     $json = $config.ToJsonString($serializerOptions)
     [System.IO.File]::WriteAllText($ConfigPath, $json + [Environment]::NewLine)
     Write-Host "Updated: $ConfigPath"
-}
-
-foreach ($agentName in $models.Keys) {
-    Write-Host "$agentName -> $($models[$agentName])"
 }

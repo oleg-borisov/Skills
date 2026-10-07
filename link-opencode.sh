@@ -15,7 +15,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser')
+AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser' 'scout')
 
 REPO_SKILLS_PATH="$REPO_ROOT/skills"
 REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"

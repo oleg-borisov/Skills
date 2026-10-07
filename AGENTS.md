@@ -32,6 +32,10 @@
 
 Скрипт генерирует .codex/agents/*.toml из канонических Markdown agents. TOML-файлы вручную не редактировать.
 
+Модели и reasoning effort leaf-agents задаются в `$profiles` этого скрипта.
+Для primary-контроллера rr-loop рекомендуется `gpt-6.1-sol` / `medium`, выбираемые
+в текущем диалоге Codex; генератор и скрипт распространения primary не настраивают.
+
 ## Генерация ZCode profiles
 
     .\sync-zcode-agents.ps1
@@ -68,18 +72,19 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 существующие пользовательские файлы (например остальные skills в ~/.agents) не трогаются.
 Сфера ограничена OpenCode (~/.config/opencode), ZCode (~/.zcode) и каноническим ~/.agents.
 
-## OpenCode model overrides
+## OpenCode models
 
-    pwsh -NoProfile -ExecutionPolicy Bypass -File .\install-opencode-model-overrides.ps1
+Канонические `agents/*.md` не задают `model`, поэтому наследуют дефолтную модель
+OpenCode. Никакой скрипт модели для OpenCode не устанавливает.
 
-Канонические `agents/*.md` остаются без модели. Скрипт мержит в
-`~/.config/opencode/opencode.json` только `agents.<name>.model`, не трогая
-остальной конфиг (перед записью делает `.bak.*`):
+Ранее установленные overrides чистятся разово:
 
-| Agent | Model |
-| --- | --- |
-| implementer, reviser, verifier | `omniroute/coder` |
-| standards-reviewer, spec-reviewer | `omniroute/architector` |
+    pwsh -NoProfile -ExecutionPolicy Bypass -File .\remove-opencode-model-overrides.ps1
+
+Скрипт удаляет только `agents.<name>.model` известных rr-loop агентов
+(`implementer`, `verifier`, `standards-reviewer`, `spec-reviewer`, `reviser`, `scout`),
+пустые секции зачищает, остальной конфиг не трогает
+(перед записью делает `.bak.*`).
 
 Требует PowerShell 7+.
 
@@ -89,5 +94,6 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 - На Windows и macOS: `~/.zcode/agents/*.md` — копии `.zcode/agents/*.md` (ZCode subagent-профили симлинки не читают).
 - На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, commands `rr-loop.md`, `rr-cascade-loop-fast.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять обязательных leaf-agents и опциональный scout; reviewer/custom-agent rr-loop отсутствуют.
+- `agents/*.md`, `.zcode/agents/*.md` и устанавливаемые OpenCode agents не содержат `model` и наследуют дефолтную модель хоста; `opencode.json` не содержит `agents.<rr-loop>.model`.
 - Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop-fast, $rr-cascade-loop-fast, /tdd или $tdd.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.
