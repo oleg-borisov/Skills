@@ -1,0 +1,23 @@
+# Финальная интеграция и completion
+
+Этот этап начинается только с QUALITY = GREEN и без активных workers. Зафиксируй явно названную parent-ветку, отдельную от integration, и выбранный repo workflow. Сохрани WAITING_FOR_HUMAN/pending_action перед запросом подтверждения final merge, tracker completion и cleanup созданных worktrees. Уже данную явную авторизацию этих действий не спрашивай повторно; подтверждение плана само по себе не означает подтверждения финального merge.
+
+## Reconciliation
+
+1. Получи актуальный parent tip разрешённым repo способом и проверь чистоту затрагиваемых checkout. Сохрани intent/tips. Parent не менялся → используй существующее gate/review evidence integration HEAD.
+2. Parent изменился → выполни обычный merge parent в integration, сохраняя ancestry tickets. Controller выполняет только чистое Git-слияние; при конфликте прерви свой merge и передай fresh implementer в integration cwd разрешение конфликта по pinned parent SHA, всей spec и соответствующим standards. На время repair checkout принадлежит только ему. При неразрешимом конфликте или двух неудачных attempts → HUMAN_ATTENTION.
+3. Новый integration HEAD всегда проходит Verify → обязательный Review → triage основного skill. Coverage осей начинается от прежних last_reviewed_head; Spec delta проверяет влияние parent-изменений на всю spec, при неясности full-spec. Если parent содержит уже готовую spec или граф изменился, передай человеку расхождение вместо пустой реализации. После восстановления QUALITY = GREEN продолжи с тем же подтверждённым target.
+4. Перед final merge повторно сверь parent tip. Если он сдвинулся, вернись к reconciliation; два последовательных сдвига во время completion → HUMAN_ATTENTION вместо бесконечного цикла.
+
+## PR или direct merge
+
+- PR: опубликуй проверенный integration HEAD в существующую head-ветку без force. До перевода draft в ready зафиксируй expected head/base SHA и механизм, запрещающий merge при их смене: атомарная проверка обоих refs хостом либо merge queue с обязательной проверкой фактического кандидата. Проверки только head недостаточно. Если такой механизм не подтверждён, оставь draft и HUMAN_ATTENTION для выбора защищённого способа merge; чтение refs непосредственно перед запросом само по себе не устраняет гонку. Новый кандидат очереди проходит Verify/Review по тем же правилам, checks очереди не заменяют Spec coverage автоматически. После GREEN и соответствующей авторизации переведи draft в ready. Если merge выполняет человек/CI, сохрани WAITING_FOR_HUMAN с URL/ожидаемыми refs, не закрывай задачи и не чисти worktrees до подтверждения merge. Squash/rebase merge допускается только по repo workflow с evidence проверенного head/base; SHA результата и статус merged сохрани. Фактический merge из других refs, в том числе человеком вне workflow, → HUMAN_ATTENTION без заявления QUALITY GREEN/COMPLETED и без tracker completion/cleanup.
+- Direct merge: fast-forward подтверждённой parent-ветки до проверенного integration HEAD по workflow репозитория, с атомарным сравнением ожидаемого parent tip или эксклюзивной блокировкой его writers на время операции. Ошибка, drift или другой target → HUMAN_ATTENTION. Push integration-ветки сам по себе не является final merge.
+
+## Tracker, отчёт и cleanup
+
+После подтверждённого merge сверь, не закрыл ли tracker tickets автоматически. Выполни только ещё не выполненные подтверждённые completion transitions; публикуй отчёт в tracker лишь при авторизации публикации. Отчёт содержит задачи, итоговый SHA/PR, gate/review evidence, human dispositions и ограничения; не публикуй сырой ledger/логи.
+
+Удаляй только зарегистрированные worktrees, созданные этим запуском, после подтверждения cleanup, проверки отсутствия writers/dirty и сохранности их commits в интегрированной истории. При squash/rebase PR ancestry заменяется сохранёнными inclusion refs и evidence merged PR. Исходный/parent/shared worktree сохраняй. Ветки удаляй только при отдельном разрешении; отказ от cleanup допускает сохранение worktrees с записью решения.
+
+Каждое внешнее действие имеет intent/result. Ошибка → HUMAN_ATTENTION с сохранённым checkpoint; успешные действия не повторяй при recovery. После merge и всех согласованных действий — COMPLETED, итоговый отчёт пользователю, освобождение собственного claim и удаление только ledger и notes_dir этого запуска. При отказе от final merge сохрани незавершённую работу; явное прекращение → STOPPED_BY_HUMAN.

@@ -50,7 +50,7 @@ Checkpoint хранит workflow/task/branch, BASE/HEAD, spec_refs и source has
 
 Finding states: OPEN, FIXED (подтверждён reviewer), WONT_FIX(reason, human decision или linked task ID). ACCEPTED от worker оставляет finding OPEN до review. Critical = BLOCKER/MAJOR; автоматически WONT_FIX для них запрещён. Отсутствие finding в новом отчёте не закрывает старый ID.
 
-Перед новым запуском ищи нетерминальный state.json и прежний <branch>.md обоих workflows для task/branch. Предложи продолжить или явно сбросить; без решения не удаляй и не запускай реализацию повторно. Старый ledger при согласованном recovery прочитай полностью один раз, перенеси актуальное состояние и сохрани legacy_path до terminal cleanup. При двух конфликтующих ledger → HUMAN_ATTENTION.
+Перед новым запуском ищи нетерминальный state.json этого workflow для task/spec и связанных branch/worktrees. Предложи продолжить или явно сбросить; без решения не удаляй ledger и не запускай реализацию повторно. Другой активный controller этого workflow на той же работе или два конфликтующих ledger → HUMAN_ATTENTION.
 
 ## Запуск и recovery
 
@@ -131,7 +131,7 @@ Completion: findings и explicit dispositions сохранены, last_reviewed_
 2. Проверь отсутствие OPEN findings и незавершённых решений; установи QUALITY = GREEN.
 3. Сохрани WAITING_FOR_HUMAN, completion pending_action и явно названный merge_target_branch. Запроси подтверждение merge, tracker completion и cleanup task-worktree, если он создан для задачи. Без явного подтверждения этих действий не выполняй.
 4. После подтверждения — §6. Только после успешного merge сформируй итоговый отчёт и опубликуй в tracker при task ID; выполни подтверждённое completion/cleanup. Ошибка → checkpoint и HUMAN_ATTENTION.
-5. После успешного завершения установи COMPLETED и удали ledger-каталог, сохранённый legacy ledger и notes_dir этой задачи.
+5. После успешного завершения установи COMPLETED и удали ledger-каталог и notes_dir этой задачи.
 
 ### 6. Merge reconciliation
 

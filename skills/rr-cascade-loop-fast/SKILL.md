@@ -50,11 +50,11 @@ Checkpoint хранит workflow/task/branch, BASE/HEAD, spec_refs и source has
 
 Finding states: OPEN, FIXED (подтверждён reviewer), WONT_FIX(reason, human decision или linked task ID). ACCEPTED от worker оставляет finding OPEN до review. Critical = BLOCKER/MAJOR; автоматически WONT_FIX для них запрещён. Отсутствие finding в новом отчёте не закрывает старый ID. Task states: PENDING, ACTIVE, AWAITING_REVIEW, REVIEWED; deferred/deferred:batch — markers AWAITING_REVIEW, не tracker completion.
 
-Перед новым запуском ищи нетерминальный state.json и прежний <branch>.md обоих workflows для task/branch. Предложи продолжить или явно сбросить; без решения не удаляй и не запускай реализацию повторно. Старый ledger при согласованном recovery прочитай полностью один раз, перенеси актуальное состояние и сохрани legacy_path до terminal cleanup. При двух конфликтующих ledger → HUMAN_ATTENTION.
+Перед новым запуском ищи нетерминальный state.json этого workflow для task/spec и связанных branch/worktrees. Предложи продолжить или явно сбросить; без решения не удаляй ledger и не запускай реализацию повторно. Другой активный controller этого workflow на той же работе или два конфликтующих ledger → HUMAN_ATTENTION.
 
 ## Запуск и recovery
 
-1. Проверь нетерминальные ledger обоих workflows до ранних выходов. Recovery сохраняет BASE/plan/task states/counters/fixed points; сверь task/branch/HEAD, source hashes, phase_results и pending_action. Продолжай сохранённую фазу, не повторяя подтверждённые действия. Изменение состава, требований или порядка требует подтверждения нового плана; необъяснимое Git-расхождение → HUMAN_ATTENTION.
+1. Проверь нетерминальные ledger этого workflow до ранних выходов. Recovery сохраняет BASE/plan/task states/counters/fixed points; сверь task/branch/HEAD, source hashes, phase_results и pending_action. Продолжай сохранённую фазу, не повторяя подтверждённые действия. Изменение состава, требований или порядка требует подтверждения нового плана; необъяснимое Git-расхождение → HUMAN_ATTENTION.
 2. Прочитай spec и готовые tickets; tracker — тело, комментарии, подзадачи и связи по docs/agents/issue-tracker.md. Если все задачи завершены, закончи без workers. Без готовой нарезки прочитай rr-loop/SKILL.md и продолжай обычный workflow без cascade ledger; самостоятельно tickets не создавай.
 3. Зафиксируй branch и BASE = HEAD до правок. Каскад работает в одной ветке с одним финальным merge.
 4. Составь plan из незавершённых задач: зависимости и порядок spec, затем ID/path для независимых. У локальных tickets учитывай Blocked by, Status, criteria. Циклы, неизвестные статусы/связи, конфликт источников или непроверяемый внешний blocker → HUMAN_ATTENTION; внешние задачи в plan не добавляй. План, требующий red между задачами, несовместим с обязательным gate.
@@ -150,7 +150,7 @@ Completion: findings и explicit dispositions сохранены, last_reviewed_
 2. Проверь: все задачи REVIEWED, нет OPEN findings/незавершённых решений, все carried IDs получили dispositions, полное spec coverage с последующими delta актуально. Установи QUALITY = GREEN.
 3. Сохрани WAITING_FOR_HUMAN, completion pending_action и явно названный merge_target_branch. Запроси подтверждение merge, tracker completion задач/spec и cleanup созданного task-worktree. Без явного подтверждения этих действий не выполняй.
 4. После подтверждения — §6. После успешного merge сформируй итоговый отчёт и опубликуй в tracker при task ID; выполни подтверждённые completion/cleanup. Записывай результат каждого действия, не повторяй успешные при recovery. Ошибка → checkpoint и HUMAN_ATTENTION.
-5. Установи COMPLETED и удали ledger-каталог, сохранённый legacy ledger и notes_dir этого каскада.
+5. Установи COMPLETED и удали ledger-каталог и notes_dir этого каскада.
 
 ### 6. Merge reconciliation
 
