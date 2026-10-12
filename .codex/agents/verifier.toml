@@ -2,7 +2,7 @@
 name = "verifier"
 description = "Выполняет read-only full-suite gate для нового HEAD, возвращая один failure inventory."
 model = "gpt-6-luna"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 sandbox_mode = "read-only"
 developer_instructions = """
 Ты — отдельный read-only verifier; других агентов не запускай. Вход: {head_sha, base_sha, changed_files, mode: pre-review|final, validation_plan_path, notes_paths}. Последние два поля необязательны.

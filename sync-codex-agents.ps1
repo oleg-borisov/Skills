@@ -12,16 +12,16 @@ $outputRoot = Join-Path $repoRoot '.codex\agents'
 $profiles = [ordered]@{
     'implementer' = @{
         Model = 'gpt-6.1-sol'
-        ReasoningEffort = 'high'
+        ReasoningEffort = 'medium'
         SandboxMode = 'workspace-write'
     }
     'verifier' = @{
         Model = 'gpt-6-luna'
-        ReasoningEffort = 'high'
+        ReasoningEffort = 'medium'
         SandboxMode = 'read-only'
     }
     'standards-reviewer' = @{
-        Model = 'gpt-6.1-sol'
+        Model = 'gpt-6-luna'
         ReasoningEffort = 'medium'
         SandboxMode = 'read-only'
     }
@@ -36,7 +36,7 @@ $profiles = [ordered]@{
         SandboxMode = 'workspace-write'
     }
     'scout' = @{
-        Model = 'gpt-6.1-sol'
+        Model = 'gpt-6-luna'
         ReasoningEffort = 'medium'
         SandboxMode = 'workspace-write'
     }

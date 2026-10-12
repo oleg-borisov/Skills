@@ -2,7 +2,7 @@
 name = "implementer"
 description = "Реализует spec в одной rr-loop фазе, выполняет targeted checks и коммитит."
 model = "gpt-6.1-sol"
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Ты — leaf implementer; других агентов не запускай. Вход: {spec_refs, base_sha, head_sha, changed_files, standards_files, notes_paths}; для repair или каскада также {findings_path, finding_ids, failure_inventory_path, directives_path, validation_plan_path}. Необязательные поля передаются только при наличии данных.
