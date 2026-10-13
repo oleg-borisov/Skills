@@ -87,4 +87,40 @@ foreach ($agentName in $agentNames) {
     Set-Content -LiteralPath $outputPath -Value $generated -Encoding utf8NoBOM
 }
 
-Write-Host "Generated serenity-agents plugin with $($agentNames.Count) subagents in $pluginDir"
+# 4. Синхронизация и адаптация навыков для Antigravity
+$skillsDir = Join-Path $repoRoot 'skills'
+$outputSkillsDir = Join-Path $pluginDir 'skills'
+$skillNames = @('rr-loop', 'rr-cascade-loop-fast', 'rr-parallel-loop')
+
+foreach ($skillName in $skillNames) {
+    $sourceSkillPath = Join-Path $skillsDir "$skillName\SKILL.md"
+    if (Test-Path -LiteralPath $sourceSkillPath) {
+        $skillTargetDir = Join-Path $outputSkillsDir $skillName
+        if (-not (Test-Path -LiteralPath $skillTargetDir)) {
+            New-Item -ItemType Directory -Path $skillTargetDir -Force | Out-Null
+        }
+        $skillContent = Get-Content -LiteralPath $sourceSkillPath -Raw
+        $pattern1 = 'Все пять основных named-ролей и механизм subagents обязательны\. При отсутствии capability → BLOCKED_UNSUPPORTED_HOST, запиши причину в checkpoint и остановись\. Недоступность scout → Exploration = NOT_APPLICABLE\.'
+        $replacement1 = 'Все пять основных named-ролей и механизм subagents обязательны. В Antigravity leaf-agents запускаются через TypeName: `self`, задавая Role именем роли (`Implementer`, `Verifier`, `Standards Reviewer`, `Spec Reviewer`, `Reviser`, `Scout`) и передавая контракт роли в системной инструкции. При отсутствии capability → BLOCKED_UNSUPPORTED_HOST, запиши причину в checkpoint и остановись. Недоступность scout → Exploration = NOT_APPLICABLE.'
+        $pattern2 = '- Все workers — прямые дети primary\. Обязательны implementer, verifier, standards-reviewer, spec-reviewer, reviser; scout опционален\. Новых ролей и вложенных controller-agents нет\.'
+        $replacement2 = '- Все workers — прямые дети primary. Обязательны implementer, verifier, standards-reviewer, spec-reviewer, reviser; scout опционален. Новых ролей и вложенных controller-agents нет. В Antigravity leaf-agents запускаются через TypeName: `self`, задавая Role именем роли (`Implementer`, `Verifier`, `Standards Reviewer`, `Spec Reviewer`, `Reviser`, `Scout`) и передавая контракт роли в системной инструкции.'
+
+        $adaptedContent = $skillContent -replace $pattern1, $replacement1 -replace $pattern2, $replacement2
+        Set-Content -LiteralPath (Join-Path $skillTargetDir 'SKILL.md') -Value $adaptedContent -Encoding utf8NoBOM
+    }
+}
+
+# 5. Правило плагина для Antigravity
+$rulesDir = Join-Path $pluginDir 'rules'
+if (-not (Test-Path -LiteralPath $rulesDir)) {
+    New-Item -ItemType Directory -Path $rulesDir -Force | Out-Null
+}
+$rulesContent = @"
+# Antigravity Subagent Rules for RR Workflows
+
+При выполнении workflows \`rr-loop\`, \`rr-cascade-loop-fast\` и \`rr-parallel-loop\` в Antigravity все leaf-agents (\`implementer\`, \`verifier\`, \`standards-reviewer\`, \`spec-reviewer\`, \`reviser\`, \`scout\`) вызываются через инструмент \`invoke_subagent\` с \`TypeName: "self"\`, Role = имя роли (\`Implementer\`, \`Verifier\`, \`Standards Reviewer\`, \`Spec Reviewer\`, \`Reviser\`, \`Scout\`), а контракт и инструкции роли передаются в системной инструкции / prompt. Это гарантирует наследование необходимых write и execution инструментов от родителя.
+"@
+Set-Content -LiteralPath (Join-Path $rulesDir 'AGENTS.md') -Value $rulesContent -Encoding utf8NoBOM
+
+Write-Host "Generated serenity-agents plugin with $($agentNames.Count) subagents, $($skillNames.Count) skills, and rules in $pluginDir"
+
