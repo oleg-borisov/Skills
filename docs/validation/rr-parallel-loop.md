@@ -43,7 +43,7 @@ C не ждёт B. D получает обе prerequisites в своей баз�
 | Обычный Markdown / agent instructions | Только неисполняемый текст допускает NOT_APPLICABLE; инструкции агентов идут через обычный gate. |
 | Merge завершён, checkpoint result не записан | Intent + точный source ancestor + объяснимый новый tip восстанавливают INTEGRATED без повторного merge. |
 | Worker жив при resume | Повторное наблюдение, не второй writer. Неизвестная liveness блокирует dispatch. |
-| Scope expansion | Worker завершает попытку JSON/risks, не ждёт controller. Согласованный dirty handoff передаётся fresh implementer со snapshot/ownership; integration и gate остаются clean. |
+| Scope expansion | Worker завершает turn JSON/risks, не ждёт controller. По уточнению 2026-10-14 свободные пути в прежних criteria допускают продолжение того же owner; передача другому worker требует snapshot. Integration и gate остаются clean. |
 | Два новых controller | Exclusive create claim rr-parallel-loop допускает одного владельца. Незавершённая запись также блокирует второго. |
 | Два concurrent resume | OS-lock сериализует передачу claim; повторная проверка owner/version внутри секции отклоняет проигравшего. |
 | Parent продвинулся | Merge parent → новый integration HEAD → Verify/Review/triage. Повторный drift ограничен; старое GREEN не переносится. |
@@ -85,7 +85,47 @@ scope и continuation передаются через существующий d
 В трёх workflows удалены поиск, миграция и cleanup прежних Markdown ledgers;
 recovery текущих `state.json`/`findings.jsonl` сохранён. Межскилловые ссылки, поиск чужих ledger и общий для workflows claim удалены; собственный claim rr-parallel-loop защищает его concurrent controllers.
 
-Структуры `state.json` и события `findings.jsonl` определены JSON/JSONL-блоками в разделе «Ledger и recovery» основного [SKILL.md](../../skills/rr-parallel-loop/SKILL.md). Отдельных recovery/template-файлов нет: обязательный контракт загружается вместе со skill. Recovery задаёт правила заполнения и записи. Оба блока успешно разобраны; sample finding не считается событием запуска, новый журнал создаётся пустым.
+Структуры `state.json` и события `findings.jsonl` определены JSON/JSONL-блоками в разделе «Ledger и recovery» основного [SKILL.md](../../skills/rr-parallel-loop/SKILL.md). Оба блока успешно разобраны; sample finding не считается событием запуска, новый журнал создаётся пустым. С 2026-10-14 детали возобновления вынесены в [recovery.md](../../skills/rr-parallel-loop/references/recovery.md), загружаемый при resume, сбое или передаче dirty worktree; claim и checkpoint остаются в основном skill.
+
+## Оптимизация по сессии, 2026-10-14
+
+Источник: чат `01a133ec-cdc0-7290-b261-7e0b56115bd4`, прочитаны обе страницы истории через `read_thread`. Подсчёт событий: 45 `subAgentActivity(kind=started)`, 319 `collabAgentToolCall(tool=wait)`, из запусков 8 verifier. Это количества событий, не измерение токенов или избыточной работы. В частности, новый HEAD после product repair требует нового общего gate.
+
+Наблюдения и изменения общего workflow:
+
+- SPO-544: дополнительный migration test builder вызвал передачу dirty, snapshot и fresh implementer. Уточнение свободных путей в прежних criteria теперь продолжает того же owner с delta directives; требования и граф этим не расширяются.
+- SPO-553/SPO-549: capacity failures приводили к повторным запросам разрешения продолжить известные dirty-попытки. Теперь допустимы два технических продолжения при доказанном выходе writer/subprocesses и происхождении правок; неизвестная liveness по-прежнему блокирует восстановление.
+- Verifier сравнил hash копии worktree с hash другого абсолютного источника (LF/CRLF). Контракт теперь связывает hash с сырыми байтами точного path; несовпадение нельзя обходить нормализацией текста.
+- В истории многократно повторялись сообщения об ожидании handoff. Skill требует событийного ожидания и чтения только изменившихся результатов; обязательная частота сообщений host сохраняется.
+- Общие роли возвращают финальный JSON; verifier read-only. Controller сохраняет JSON сам, отсутствие второй копии файла не становится причиной повторного gate. Для неполного evidence предусмотрено ограниченное восстановление отчёта.
+- Смена схемы дошла до общего gate со старыми assertions. В dispatch уточнён выбор targeted checks по затронутым consumers/fixtures; список конкретных Android-тестов и runner относятся к проекту и в skill не перенесены.
+
+Удалена дублирующая таблица входов/выходов ролей. JSON-схемы ledger и общих leaf-agents не менялись. Cleanup сохраняет evidence вне удаляемых каталогов. Claim, full gate, независимые review, finding dispositions и авторизация final merge сохранены.
+
+Проверка изменённых веток контракта:
+
+| Сценарий | Ожидаемое действие |
+| --- | --- |
+| Свободный fixture для прежнего criterion | Завершить turn, сохранить scope/intent, продолжить того же owner; не создавать snapshot без передачи ownership. |
+| Путь занят другим RUNNING/READY worker | Приостановить dispatch/merges, дождаться writers; интегрировать завершённые задачи в подтверждённом scope, освободить их locks и проверить scope продолжения. |
+| Capacity failure; owner и выход subprocesses подтверждены | Продолжить сохранённую попытку в пределах двух retries; fresh worker получает snapshot при передаче dirty. |
+| Timeout ожидания или неизвестный subprocess | Не считать worker завершённым; не назначать второго writer. |
+| JSON есть, handoff-файла нет | Controller сохраняет JSON; проверки результата обычные, новый gate не запускается из-за файла. |
+| Commit есть, отчёт неполный | Восстановить evidence в той же роли; не повторять реализацию или успешные проверки без изменения входов. |
+| BLOCKED до checks из-за неверной адресации | Исправить refs и продолжить verifier на тех же входах в пределах retries; это не product RED. |
+| Test RED / новый HEAD после repair | Обычный inventory → repair → Verify; инфраструктурные retries не подменяют этот цикл. |
+| GREEN HEAD без изменений | Переиспользовать gate evidence; OPEN findings всё равно требуют reviewer dispositions. |
+| Evidence находится внутри удаляемого ledger | Сохранить evidence/рабочие ссылки снаружи либо оставить содержащий его каталог. |
+
+Это логический прогон, не повтор продуктовой сессии. Фактическая экономия токенов и времени после изменений не измерена.
+
+Размер текста (Unicode characters, LF, без внешних пробелов): основной SKILL.md 25 750 → 24 482 (−4,9%); весь skill с references 30 173 → 33 320 (+10,4%). Recovery загружается условно. Ожидаемая экономия выполнения связана с устранением fresh dispatch/повторного контекста/дублирующего handoff, а не с уменьшением суммарного объёма всех файлов.
+
+Независимый read-only forward-test обнаружил и позволил исправить два перехода: freeze merges не позволял освободить scope завершившегося B; безусловное удаление ledger противоречило сохранению вложенного evidence. Для первого теперь разрешена интеграция завершённых задач в подтверждённом scope после выхода writers; для второго содержащие evidence каталоги остаются с отметкой COMPLETED.
+
+Повторный независимый прогон этих двух исправлений не нашёл блокирующих противоречий.
+
+Статические проверки: `git diff --check`, строгая UTF-8 декодировка без BOM, локальные Markdown-ссылки, разбор и сравнение JSON/JSONL checkpoint с HEAD — PASS. Frontmatter проверен как два plain scalar поля. Штатный `quick_validate.py` не запустился: в доступном bundled Python отсутствует PyYAML. Скрипты установки/генерации и общие agents не менялись.
 
 ## Границы результата
 
