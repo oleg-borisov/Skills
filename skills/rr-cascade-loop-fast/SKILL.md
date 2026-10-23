@@ -16,7 +16,7 @@ disable-model-invocation: true
 - Цикл начинается в текущем checkout; окружение не меняется до merge reconciliation. Worker сохраняет чужие изменения и коммитит свой scope после formatter и targeted checks.
 - После Implement/Revise выполняются Review → Triage; полный gate — только после завершения review и решений человека по всему результату. Промежуточные задачи каскада не требуют полного gate; deferred review и NOT_APPLICABLE сохраняют правила ниже.
 - Verifier — отдельный агент: выполняет обязательный full-suite gate и собирает failures вне контекста implementer/reviser. Reviewers checks не запускают.
-- QUALITY = GREEN требует актуального gate evidence, обязательного review coverage и отсутствия OPEN findings/незавершённых решений на одном итоговом HEAD. Исторические targeted checks сохраняют SHA своих worker handoffs. Новый HEAD инвалидирует итоговую QUALITY; отсутствие прогресса не закрывает critical finding.
+- QUALITY = GREEN требует актуального gate evidence, обязательного review coverage и отсутствия OPEN findings/незавершённых решений с evidence, применимым к итоговому HEAD. Исторические targeted checks сохраняют SHA своих worker handoffs. Новый HEAD требует проверки применимости gate/review evidence; отсутствие прогресса не закрывает critical finding.
 - Итоговый отчёт — после успешного final merge; cleanup ledger и notes_dir — только при terminal status.
 
 ## Контекст и handoff
@@ -138,13 +138,15 @@ Completion: findings и explicit dispositions сохранены, last_reviewed_
 
 Если HEAD == last_full_green_head и проверяемые входы не изменились, используй сохранённый GREEN. Незакоммиченные изменения проверяемых входов, неизвестный scope или недостоверное evidence → HUMAN_ATTENTION, не skip.
 
-Docs-only означает только неисполняемый текст: расширение или каталог docs/ само по себе ничего не гарантирует. Executable examples, MDX logic, конфиги, agent instructions и build inputs требуют обычного gate. Классификация опирается на worker handoff и repo configuration; сомнение → обычный gate. Docs-only gate = NOT_APPLICABLE допустим, если весь непроверенный диапазон от last_full_green_head (или BASE, если GREEN ещё нет) — такой текст. Сохрани диапазон и причину; last_full_green_head не обновляй.
+При смене HEAD сначала проверь применимость сохранённого полного GREEN: controller использует уже полученный Git diff от last_full_green_head до HEAD и сохранённые validation plan/логи, без отдельного subagent или project checks. Переиспользование допустимо при одинаковом Git tree либо diff только пояснений/инструкций, если код, tests, fixtures/resources, build/config inputs и существенные условия среды неизменны, а выполненные команды и результаты удовлетворяют текущим требованиям проверок. Для второго случая controller читает только изменённый текст инструкций/документации; название файла, расширение и отсутствие конфликтов сами по себе ничего не доказывают. Новые обязательные проверки, изменение inputs/условий или необходимость дополнительного исследования → обычный gate. В gate evidence запиши исходный SHA/ссылку на GREEN, текущий HEAD и краткое доказательство применимости; last_full_green_head оставь SHA фактического прогона. Это reuse успешного gate, не docs-only NOT_APPLICABLE; review coverage проверяется отдельно.
+
+Docs-only означает только неисполняемый текст: расширение или каталог docs/ само по себе ничего не гарантирует. Executable examples, MDX logic, конфиги, agent instructions и build inputs требуют обычного gate при отсутствии применимого GREEN. Классификация опирается на worker handoff и repo configuration; сомнение → обычный gate. Docs-only gate = NOT_APPLICABLE допустим, если весь непроверенный диапазон от last_full_green_head (или BASE, если GREEN ещё нет) — такой текст. Сохрани диапазон и причину; last_full_green_head не обновляй.
 
 Иначе запусти fresh verifier с {head_sha, base_sha, changed_files, mode, validation_plan_path}; scope покрывает весь непроверенный диапазон, mode = final. Verifier определяет/переиспользует обязательные commands по repo configuration и выполняет один полный проход. GREEN → last_full_green_head = HEAD и evidence в checkpoint.
 
 RED → сохрани единый inventory и вызови fresh reviser с failure_inventory_path, spec/standards refs всего затронутого scope и finding_ids: [] при отсутствии review findings. Repair выполняет targeted checks и commit. Новый commit → обязательный delta Review → Triage → повторный полный gate; неизменный HEAD после repair, BLOCKED или три RED подряд → HUMAN_ATTENTION. Worker repair не увеличивает review iteration; последующий review учитывается обычным образом. GREEN сбрасывает RED counter; промежуточный review его не сбрасывает. Failures автоматически не отклоняй.
 
-Completion: GREEN с commands/results для текущего HEAD либо обоснованный NOT_APPLICABLE для всего непроверенного диапазона; затем Done.
+Completion: GREEN для текущего HEAD по фактическому прогону либо доказанному reuse, или обоснованный NOT_APPLICABLE для всего непроверенного диапазона; затем Done.
 
 ### 5. Done
 
@@ -156,7 +158,7 @@ Completion: GREEN с commands/results для текущего HEAD либо об
 
 ### 6. Merge reconciliation
 
-Только для подтверждённого merge_target_branch, отличного от task-ветки. Выполни rebase на актуальный parent tip; при конфликте/ошибке → HUMAN_ATTENTION, без автоматического retry loop. Если HEAD изменился, прежнее gate/review evidence не переносится автоматически: вернись в обязательный Review → Triage → финальный Verify, сохранив утверждённый merge target. После восстановления QUALITY = GREEN выполни fast-forward в подтверждённую parent-ветку по workflow репозитория; простой push task-ветки не подтверждает merge. Ошибка fast-forward → HUMAN_ATTENTION.
+Только для подтверждённого merge_target_branch, отличного от task-ветки. Выполни rebase на актуальный parent tip; при конфликте/ошибке → HUMAN_ATTENTION, без автоматического retry loop. Если HEAD изменился, проверь review coverage по delta и выполни необходимый Review → Triage; затем в Verify (§4) проверь reuse полного GREEN до запуска verifier, сохранив утверждённый merge target. После восстановления QUALITY = GREEN выполни fast-forward в подтверждённую parent-ветку по workflow репозитория; простой push task-ветки не подтверждает merge. Ошибка fast-forward → HUMAN_ATTENTION.
 
 Tracker completion и cleanup разрешены только после подтверждённого merge. Удали только task-worktree, созданный для этой задачи, никогда parent/default worktree. Сохраняй результаты внешних действий и не повторяй успешные после recovery.
 
