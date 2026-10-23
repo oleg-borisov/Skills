@@ -1,6 +1,6 @@
 ---
 name: rr-loop
-description: Запустить интерактивный implement → verify → review → revise workflow в текущем primary-контексте.
+description: Запустить интерактивный implement → review → revise → final gate workflow в текущем primary-контексте.
 disable-model-invocation: true
 ---
 
@@ -14,9 +14,9 @@ disable-model-invocation: true
 - Controller работает со spec, git metadata, compact handoffs и ledger; не исследует и не редактирует product code, не запускает project checks или formatter.
 - Implement начинается с запуска fresh implementer. Если primary уже изменил product code вместо worker — HUMAN_ATTENTION.
 - Цикл начинается в текущем checkout; окружение не меняется до merge reconciliation. Worker сохраняет чужие изменения и коммитит свой scope после formatter и targeted checks.
-- Каждый новый commit проходит Verify → Review → Decide. Единственные исключения — явные NOT_APPLICABLE gate/axis и deferred review по правилам ниже.
+- После Implement/Revise выполняются Review → Triage; полный gate — только после завершения review и решений человека по результату задачи. NOT_APPLICABLE gate/axis допускается по правилам ниже.
 - Verifier — отдельный агент: выполняет обязательный full-suite gate и собирает failures вне контекста implementer/reviser. Reviewers checks не запускают.
-- QUALITY = GREEN требует актуального gate evidence, обязательного review coverage и отсутствия OPEN findings. Отсутствие прогресса не закрывает critical finding.
+- QUALITY = GREEN требует актуального gate evidence, обязательного review coverage и отсутствия OPEN findings/незавершённых решений на одном итоговом HEAD. Исторические targeted checks сохраняют SHA своих worker handoffs. Новый HEAD инвалидирует итоговую QUALITY; отсутствие прогресса не закрывает critical finding.
 - Итоговый отчёт — после успешного final merge; cleanup ledger и notes_dir — только при terminal status.
 
 ## Контекст и handoff
@@ -29,10 +29,10 @@ standards_files впервые возвращает implementer: примени�
 
 ## Leaf-agents
 
-- implementer — текущая spec, carried findings или pre-review repair; targeted checks и commit.
+- implementer — текущая spec и carried findings; targeted checks и commit.
 - verifier — read-only full-suite gate и один failure inventory.
 - standards-reviewer — documented standards; spec-reviewer — соответствие spec.
-- reviser — заданные findings или post-review repair; targeted checks и commit.
+- reviser — заданные findings или RED repair по inventory; targeted checks и commit.
 - scout — опциональное общее исследование нескольких workers.
 
 Все пять основных named-ролей и механизм subagents обязательны. При отсутствии capability → BLOCKED_UNSUPPORTED_HOST, запиши причину в checkpoint и остановись. Недоступность scout → Exploration = NOT_APPLICABLE.
@@ -77,23 +77,11 @@ Finding states: OPEN, FIXED (подтверждён reviewer), WONT_FIX(reason, 
 
 Следующее действие — fresh implementer с {spec_refs, base_sha: BASE, head_sha: HEAD, changed_files} и доступными context refs. Controller не исследует product code до dispatch. Прими финальный JSON worker, проверь новый commit и совпадение HEAD; отсутствие нового commit → HUMAN_ATTENTION, не повторная реализация вслепую.
 
-Сохрани standards_files, scope/checks и affected_review_axes в checkpoint; затем Verify. Formatter/autofix уже выполнен worker до commit, controller его не запускает.
+Сохрани standards_files, scope/checks и affected_review_axes в checkpoint; проверь успешное evidence финальных targeted checks, затем Review. Formatter/autofix уже выполнен worker до commit, controller его не запускает.
 
-### 2. Verify
+### 2. Review
 
-Если HEAD == last_full_green_head и проверяемые входы не изменились, используй сохранённый GREEN. Незакоммиченные изменения проверяемых входов, неизвестный scope или недостоверное evidence → HUMAN_ATTENTION, не skip.
-
-Docs-only означает только неисполняемый текст: расширение или каталог docs/ само по себе ничего не гарантирует. Executable examples, MDX logic, конфиги, agent instructions и build inputs требуют обычного gate. Классификация опирается на worker handoff и repo configuration; сомнение → обычный gate. Docs-only gate = NOT_APPLICABLE допустим, если весь непроверенный диапазон от last_full_green_head (или BASE, если GREEN ещё нет) — такой текст. Сохрани диапазон и причину; last_full_green_head не обновляй.
-
-Иначе запусти fresh verifier с {head_sha, base_sha, changed_files, mode, validation_plan_path}; scope покрывает весь непроверенный диапазон, mode = pre-review (final при входе из Done). Verifier определяет/переиспользует обязательные commands по repo configuration и выполняет один полный проход. GREEN → last_full_green_head = HEAD и evidence в checkpoint.
-
-RED → сохрани единый inventory и вызови fresh implementer до первого review текущей задачи, иначе fresh reviser. Repair получает failure_inventory_path и refs scope; новый commit всегда возвращает в Verify. Repair не увеличивает review iteration. Unchanged HEAD, BLOCKED или три RED подряд → HUMAN_ATTENTION; GREEN сбрасывает RED counter. Failures автоматически не отклоняй.
-
-Completion: GREEN с commands/results для текущего HEAD либо обоснованный NOT_APPLICABLE для всего непроверенного диапазона.
-
-### 3. Review
-
-Для каждой оси base_sha = её last_reviewed_head, а до первого review — BASE. Выбор осей определяется всем непокрытым диапазоном этой оси, не только последним commit/задачей. Tests-only не освобождает от Standards. Spec обязателен для требований задачи; Standards пропускай только если применимые документированные правила отсутствуют или полностью покрыты успешными автоматическими checks. Для skip сохрани range/reason как NOT_APPLICABLE coverage; last_reviewed_head не продвигай.
+Для каждой оси base_sha = её last_reviewed_head, а до первого review — BASE. Выбор осей определяется всем непокрытым диапазоном этой оси, не только последним commit/задачей. Tests-only не освобождает от Standards. Spec обязателен для требований задачи; Standards пропускай только если применимые документированные правила отсутствуют или полностью покрыты уже успешными автоматическими checks для проверяемого scope. Будущие проверки финального gate основанием для skip не являются. Для skip сохрани range/reason как NOT_APPLICABLE coverage; last_reviewed_head не продвигай.
 
 После repair запускай union(originating axes незакрытых findings, affected_review_axes нового diff). Изменение observable behavior/контрактов/requirements требует Spec; структуры/conventions, включая tests/build tooling, — Standards. При сомнении обе. Непокрытые обязательные оси сохраняются даже без новых findings.
 
@@ -103,7 +91,7 @@ Completion: GREEN с commands/results для текущего HEAD либо об
 
 Completion: findings и explicit dispositions сохранены, last_reviewed_head каждой выполненной оси = проверенный HEAD, coverage записан. Дубли объединяй с сохранением IDs и истории, critical без прогресса два последовательных review → HUMAN_ATTENTION.
 
-### 4. Triage
+### 3. Triage
 
 Лимиты: максимум две итерации исправления MINOR; затем оставшиеся MINOR — пакет решений человека (linked task либо rejection). Четыре critical review iterations или тот же critical без прогресса два review подряд → HUMAN_ATTENTION. Лимиты не закрывают findings.
 
@@ -111,23 +99,37 @@ Completion: findings и explicit dispositions сохранены, last_reviewed_
 - Нет active critical → Human decisions для оставшихся MINOR/спорных findings; при отсутствии вопросов → Done.
 - Дешёвый MINOR можно исправить попутно с critical: один файл, до 20 LOC, без public API/schema/test-architecture/research. Остальные требуют решения человека.
 
-### 4.1 Revise
+### 3.1 Revise
 
 Запусти fresh reviser с findings_path/finding_ids, spec_refs, standards_files, refs scope и directives_path при наличии. Прими commit/head, per-ID ACCEPTED|REJECTED, checks и affected_review_axes. ACCEPTED оставляет finding OPEN до review. Отклонённый critical → HUMAN_ATTENTION с evidence.
 
-При новом commit: проверь HEAD, выполни Verify (§2), затем delta Review (§3) и Triage. При unchanged HEAD checks/review не повторяй; неразрешённые dispositions передай человеку.
+При новом commit: проверь HEAD, выполни delta Review (§2), затем Triage; полный gate выполняется после разрешения findings и решений. При unchanged HEAD checks/review не повторяй; неразрешённые dispositions передай человеку.
 
-### 4.2 Human decisions
+### 3.2 Human decisions
 
 Задай готовые вопросы одним batch: ID, severity, axis, location, evidence и proposed fix. Варианты MINOR: FIX_NOW, linked task, REJECTED(reason). MINOR >3 файлов, >100 LOC или меняющий test architecture — только linked task/rejection. Для critical прими correction/instruction; явный отказ исправлять → STOPPED_BY_HUMAN, не COMPLETED.
 
-До вопроса запиши WAITING_FOR_HUMAN и pending_action в checkpoint. После ответа сохрани решения, очисти pending_action и продолжи RUNNING, кроме terminal refusal. Разрешённые linked tasks создавай по docs/agents/issue-tracker.md, сохраняй IDs/URLs; только затем отмечай DEFERRED как WONT_FIX. Для FIX_NOW — §4.1.
+До вопроса запиши WAITING_FOR_HUMAN и pending_action в checkpoint. После ответа сохрани решения, очисти pending_action и продолжи RUNNING, кроме terminal refusal. Разрешённые linked tasks создавай по docs/agents/issue-tracker.md, сохраняй IDs/URLs; только затем отмечай DEFERRED как WONT_FIX. Для FIX_NOW — §3.1.
 
 Указания человека во время worker сохраняй в user_directives; применяй перед следующим переходом и отмечай consumed. Явную просьбу остановить работу исполняй сразу.
 
+### 4. Verify — финальный gate
+
+Вход только из Done: обязательное review coverage актуально, OPEN findings и незавершённых решений нет. Gate проверяет итог задачи, не каждый worker commit.
+
+Если HEAD == last_full_green_head и проверяемые входы не изменились, используй сохранённый GREEN. Незакоммиченные изменения проверяемых входов, неизвестный scope или недостоверное evidence → HUMAN_ATTENTION, не skip.
+
+Docs-only означает только неисполняемый текст: расширение или каталог docs/ само по себе ничего не гарантирует. Executable examples, MDX logic, конфиги, agent instructions и build inputs требуют обычного gate. Классификация опирается на worker handoff и repo configuration; сомнение → обычный gate. Docs-only gate = NOT_APPLICABLE допустим, если весь непроверенный диапазон от last_full_green_head (или BASE, если GREEN ещё нет) — такой текст. Сохрани диапазон и причину; last_full_green_head не обновляй.
+
+Иначе запусти fresh verifier с {head_sha, base_sha, changed_files, mode, validation_plan_path}; scope покрывает весь непроверенный диапазон, mode = final. Verifier определяет/переиспользует обязательные commands по repo configuration и выполняет один полный проход. GREEN → last_full_green_head = HEAD и evidence в checkpoint.
+
+RED → сохрани единый inventory и вызови fresh reviser с failure_inventory_path, spec/standards refs всего затронутого scope и finding_ids: [] при отсутствии review findings. Repair выполняет targeted checks и commit. Новый commit → обязательный delta Review → Triage → повторный полный gate; неизменный HEAD после repair, BLOCKED или три RED подряд → HUMAN_ATTENTION. Worker repair не увеличивает review iteration; последующий review учитывается обычным образом. GREEN сбрасывает RED counter; промежуточный review его не сбрасывает. Failures автоматически не отклоняй.
+
+Completion: GREEN с commands/results для текущего HEAD либо обоснованный NOT_APPLICABLE для всего непроверенного диапазона; затем Done.
+
 ### 5. Done
 
-1. Проверь актуальный gate (§2) и обязательное coverage (§3). Сохранённый GREEN не требует нового verifier; выполненные reviews на том же HEAD не повторяй. При недостатке evidence вернись в соответствующую фазу. RED repair следует обычному Verify → Review → Triage, отдельной repair-ветки в Done нет.
+1. Сначала проверь обязательное coverage (§2), отсутствие OPEN findings и незавершённых решений; при недостатке вернись в Review/Triage. Затем выполни финальный Verify (§4). Сохранённый GREEN не требует нового verifier; выполненные reviews на том же HEAD не повторяй. RED repair возвращается через Review → Triage к финальному Verify.
 2. Проверь отсутствие OPEN findings и незавершённых решений; установи QUALITY = GREEN.
 3. Сохрани WAITING_FOR_HUMAN, completion pending_action и явно названный merge_target_branch. Запроси подтверждение merge, tracker completion и cleanup task-worktree, если он создан для задачи. Без явного подтверждения этих действий не выполняй.
 4. После подтверждения — §6. Только после успешного merge сформируй итоговый отчёт и опубликуй в tracker при task ID; выполни подтверждённое completion/cleanup. Ошибка → checkpoint и HUMAN_ATTENTION.
@@ -135,7 +137,7 @@ Completion: findings и explicit dispositions сохранены, last_reviewed_
 
 ### 6. Merge reconciliation
 
-Только для подтверждённого merge_target_branch, отличного от task-ветки. Выполни rebase на актуальный parent tip; при конфликте/ошибке → HUMAN_ATTENTION, без автоматического retry loop. Если HEAD изменился, прежнее gate/review evidence не переносится автоматически: вернись в Verify → обязательный Review, сохранив утверждённый merge target. После восстановления QUALITY = GREEN выполни fast-forward в подтверждённую parent-ветку по workflow репозитория; простой push task-ветки не подтверждает merge. Ошибка fast-forward → HUMAN_ATTENTION.
+Только для подтверждённого merge_target_branch, отличного от task-ветки. Выполни rebase на актуальный parent tip; при конфликте/ошибке → HUMAN_ATTENTION, без автоматического retry loop. Если HEAD изменился, прежнее gate/review evidence не переносится автоматически: вернись в обязательный Review → Triage → финальный Verify, сохранив утверждённый merge target. После восстановления QUALITY = GREEN выполни fast-forward в подтверждённую parent-ветку по workflow репозитория; простой push task-ветки не подтверждает merge. Ошибка fast-forward → HUMAN_ATTENTION.
 
 Tracker completion и cleanup разрешены только после подтверждённого merge. Удали только task-worktree, созданный для этой задачи, никогда parent/default worktree. Сохраняй результаты внешних действий и не повторяй успешные после recovery.
 

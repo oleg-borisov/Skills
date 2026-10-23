@@ -1,5 +1,7 @@
 # Логический прогон rr-parallel-loop
 
+Исторический прогон: порядок Verify → Review ниже заменён [ADR-0005](../adr/0005-final-gate-after-review.md). Проверка нового порядка трёх workflows описана в [final-gate-after-review.md](final-gate-after-review.md).
+
 Дата: 2026-10-11. Проверен текст [skill](../../skills/rr-parallel-loop/SKILL.md),
 [completion](../../skills/rr-parallel-loop/references/completion.md), общие
 `agents/*.md`. Workflows запускаются независимо; взаимный recovery не предусмотрен.
