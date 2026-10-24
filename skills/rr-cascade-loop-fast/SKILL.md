@@ -1,167 +1,48 @@
 ---
 name: rr-cascade-loop-fast
-description: Последовательно реализовать задачи спецификации, исправляя замечания review в Implement следующей задачи.
+description: Последовательно реализовать готовые задачи, исправляя findings в следующем Implement.
 disable-model-invocation: true
 ---
 
 # RR Cascade Loop Fast
 
-Ты — primary-controller текущего диалога: веди state machine, ledger, решения человека и переходы фаз. Product code и checks выполняют leaf-agents.
+Оставайся primary-controller. Сначала прочитай [общий протокол](../rr-loop/references/protocol.md): роли, ledger, handoff, Review/Triage, Verify и cleanup обязательны. Ниже — отличия каскада; перенос critical в следующий Implement заменяет немедленный Revise только для промежуточных задач.
 
-## Инварианты
+## План и запуск
 
-- Все leaf-agents — прямые дети primary; leaf-agent не запускает другого агента.
-- Controller работает со spec, git metadata, compact handoffs и ledger; не исследует и не редактирует product code, не запускает project checks или formatter.
-- Implement начинается с запуска fresh implementer. Если primary уже изменил product code вместо worker — HUMAN_ATTENTION.
-- Цикл начинается в текущем checkout; окружение не меняется до merge reconciliation. Worker сохраняет чужие изменения и коммитит свой scope после formatter и targeted checks.
-- После Implement/Revise выполняются Review → Triage; полный gate — только после завершения review и решений человека по всему результату. Промежуточные задачи каскада не требуют полного gate; deferred review и NOT_APPLICABLE сохраняют правила ниже.
-- Verifier — отдельный агент: выполняет обязательный full-suite gate и собирает failures вне контекста implementer/reviser. Reviewers checks не запускают.
-- QUALITY = GREEN требует актуального gate evidence, обязательного review coverage и отсутствия OPEN findings/незавершённых решений с evidence, применимым к итоговому HEAD. Исторические targeted checks сохраняют SHA своих worker handoffs. Новый HEAD требует проверки применимости gate/review evidence; отсутствие прогресса не закрывает critical finding.
-- Итоговый отчёт — после успешного final merge; cleanup ledger и notes_dir — только при terminal status.
+1. Проверь нетерминальный ledger до ранних выходов. Recovery сохраняет план, task states/BASE, counters, fixed points и текущую фазу. Изменение состава/требований/порядка требует нового согласования; необъяснимый Git drift → HUMAN_ATTENTION.
+2. Прочитай spec и готовые tickets: criteria, тело/комментарии/подзадачи/связи tracker по `docs/agents/issue-tracker.md`; локальные Blocked by/Status. Все завершены → отчёт без workers. Нет готовой нарезки → [rr-loop](../rr-loop/SKILL.md), без cascade ledger и самостоятельного создания tickets.
+3. Одна текущая ветка, BASE = HEAD до правок, один финальный merge; окружение до reconciliation не меняется. Ledger: `.scratch/rr-cascade-loop-fast/<branch>/`. Дополнительно к общему state: plan/dependencies, current_task, task BASE/state/deferred marker, deferred_code_count.
+4. Планируй незавершённые задачи по зависимостям/порядку spec, затем ID/path. Внешние задачи в план не добавляй. Циклы, неизвестные статусы/связи, конфликт источников, непроверяемый blocker или непроверяемые criteria → HUMAN_ATTENTION. План с известными failures targeted checks до будущей задачи несовместим с каскадом.
+5. Покажи plan/dependencies; нужны подтверждение запуска и test seams, если их требует TDD. Уже данное явное согласование не повторяй. До него — WAITING_FOR_HUMAN/pending_action, без tracker activation/workers. Затем RUNNING и условный Exploration по протоколу.
 
-## Контекст и handoff
+Task states: PENDING → ACTIVE → AWAITING_REVIEW → REVIEWED. REVIEWED означает coverage, не gate GREEN/tracker completion.
 
-Передавай refs, не содержимое spec/diff/логов и не историю диалога. Если host позволяет, запускай workers без наследования истории controller. spec_refs = [{path, sections, criterion_ids, hash}]; для общих контрактов добавляй нужные разделы. Controller один раз на диапазон получает changed_files через git metadata; patch читает каждый worker в своём scope.
+## Следующая задача → Implement
 
-Общий вход worker: {base_sha, head_sha, changed_files}; дополнительно по роли — spec_refs, standards_files, notes_paths, findings_path + finding_ids, failure_inventory_path, directives_path, validation_plan_path. Пустые необязательные данные опускай. Вызывай по контракту named-агента; controller и worker используют одинаковые имена полей.
+Проверь внешние blockers: незавершённый/непроверяемый → HUMAN_ATTENTION. Внутренние зависимости выполнены по ledger с разрешённым переносом findings, без ожидания tracker completion. Примени directives, current_task, task BASE = HEAD, ACTIVE, task review counter = 0; при recovery их не сбрасывай. Выполни tracker activation.
 
-standards_files впервые возвращает implementer: применимые repo standards, включая вложенные инструкции. Переиспользуй пути и хеши, обновляй при новом scope или изменении источников; неизвестные standards не считай отсутствующими. Verifier возвращает validation plan с commands/scope/config_refs; controller сохраняет его и compact failure inventory в ledger-каталог. Полные логи остаются по log_path. Следующие workers получают только относящиеся к ним notes_paths.
+Следующее действие — fresh implementer с spec_refs задачи/общих контрактов и carried criteria, `{base_sha: task BASE, head_sha: HEAD}`, findings_path/IDs и context refs. Обязательны все OPEN BLOCKER/MAJOR и согласованные FIX_NOW; дешёвые MINOR — по протоколу. Будущие задачи вне scope; controller product code до dispatch не исследует.
 
-## Leaf-agents
+Прими новый head, успешные targeted checks, rejected и affected_review_axes; сверь Git metadata. Нет нового commit → HUMAN_ATTENTION, кроме технически незавершённой попытки. Worker acceptance не закрывает findings. Затем Review либо допустимое отложение.
 
-- implementer — текущая spec и carried findings; targeted checks и commit.
-- verifier — read-only full-suite gate и один failure inventory.
-- standards-reviewer — documented standards; spec-reviewer — соответствие spec.
-- reviser — заданные findings или RED repair по inventory; targeted checks и commit.
-- scout — опциональное общее исследование нескольких workers.
+## Review или deferred
 
-Все пять основных named-ролей и механизм subagents обязательны. При отсутствии capability → BLOCKED_UNSUPPORTED_HOST, запиши причину в checkpoint и остановись. Недоступность scout → Exploration = NOT_APPLICABLE.
+Собственный review задачи можно отложить:
 
-## Ledger
+- Только неисполняемый текст → AWAITING_REVIEW/deferred.
+- Малая кодовая задача → AWAITING_REVIEW/deferred:batch: весь diff <100 строк и <10 файлов; нет public API/schema/контрактов/migrations/test-architecture; targeted checks успешны; задача не последняя; отложено <3 кодовых задач после последнего review. Docs-задачи счётчик не сбрасывают.
+- Carried IDs, active critical, RED repair, reconciliation или явная user_directive запрещают отложение. Пороги меняются только явным решением человека.
 
-LEDGER_DIR = .scratch/rr-cascade-loop-fast/<branch>/:
-- state.json — актуальный компактный checkpoint; атомарная замена через временный файл в том же каталоге.
-- findings.jsonl — append-only события со stable ID, seq, axis, severity, location, evidence, fix, state и review disposition.
-- Артефакты handoff, validation plan и inventory — по ссылкам из checkpoint.
+Отложена не последняя → следующая задача; последняя docs-only → Done для покрывающего review, без повторного отложения. Иначе Review по общему протоколу: refs/Standards всех непокрытых задач каждой оси. После coverage/dispositions без critical покрытые задачи REVIEWED; иначе AWAITING_REVIEW.
 
-Checkpoint хранит workflow/task/branch, BASE/HEAD, spec_refs и source hashes, WORKFLOW_STATUS/QUALITY, current_phase, pending_action/user_directives, last_full_green_head и gate evidence, last_reviewed_head по каждой оси, review coverage/iteration counters, OPEN IDs с указателями на последние записи findings, findings_seq, phase_results/worker handoff refs, standards/validation refs, notes metadata, merge_target_branch и результаты tracker/merge/cleanup. Также plan/dependencies, current_task, task BASE, task states и deferred markers. Текст spec и логи не дублируй.
+Reviewer последней задачи — Spec full-spec всей spec, включая ранее завершённые задачи. Если review deferred, full-spec выполняется в Done. Сохраняй full_spec_reviewed_head; последующие Spec delta проверяют влияние на общее покрытие, при неясности full-spec.
 
-После фазы сначала допиши findings/handoff, затем атомарно сохрани checkpoint. Recovery читает state.json, актуальные OPEN records и хвост findings после findings_seq; более старую историю — только при расхождениях. Незавершённую запись не считай подтверждённой; незаписанный worker commit сверяй с handoff до повторного dispatch.
+После review промежуточной задачи все OPEN critical и FIX_NOW переходят в следующий Implement. Тот же critical без прогресса два review → HUMAN_ATTENTION. После последней задачи — Triage по всему каскаду: critical автоматически в отдельный ticket не откладывай; Revise/решения человека/лимиты по протоколу. Новый repair commit всегда проходит delta Review → Triage, без deferred и без возврата к выполненным tickets.
 
-Finding states: OPEN, FIXED (подтверждён reviewer), WONT_FIX(reason, human decision или linked task ID). ACCEPTED от worker оставляет finding OPEN до review. Critical = BLOCKER/MAJOR; автоматически WONT_FIX для них запрещён. Отсутствие finding в новом отчёте не закрывает старый ID. Task states: PENDING, ACTIVE, AWAITING_REVIEW, REVIEWED; deferred/deferred:batch — markers AWAITING_REVIEW. REVIEWED означает review coverage, не итоговый GREEN или tracker completion.
+## Done → Verify → Merge
 
-Перед новым запуском ищи нетерминальный state.json этого workflow для task/spec и связанных branch/worktrees. Предложи продолжить или явно сбросить; без решения не удаляй ledger и не запускай реализацию повторно. Другой активный controller этого workflow на той же работе или два конфликтующих ledger → HUMAN_ATTENTION.
-
-## Запуск и recovery
-
-1. Проверь нетерминальные ledger этого workflow до ранних выходов. Recovery сохраняет BASE/plan/task states/counters/fixed points; сверь task/branch/HEAD, source hashes, phase_results и pending_action. Продолжай сохранённую фазу, не повторяя подтверждённые действия. Изменение состава, требований или порядка требует подтверждения нового плана; необъяснимое Git-расхождение → HUMAN_ATTENTION.
-2. Прочитай spec и готовые tickets; tracker — тело, комментарии, подзадачи и связи по docs/agents/issue-tracker.md. Если все задачи завершены, закончи без workers. Без готовой нарезки прочитай rr-loop/SKILL.md и продолжай обычный workflow без cascade ledger; самостоятельно tickets не создавай.
-3. Зафиксируй branch и BASE = HEAD до правок. Каскад работает в одной ветке с одним финальным merge.
-4. Составь plan из незавершённых задач: зависимости и порядок spec, затем ID/path для независимых. У локальных tickets учитывай Blocked by, Status, criteria. Циклы, неизвестные статусы/связи, конфликт источников или непроверяемый внешний blocker → HUMAN_ATTENTION; внешние задачи в plan не добавляй. Промежуточные задачи должны завершаться успешными targeted checks; план, требующий оставлять известные ошибки этих checks до следующих задач, несовместим с каскадом.
-5. Выполни Preflight. Покажи spec, plan/dependencies; checkpoint WAITING_FOR_HUMAN с pending_action подтверждения запуска. До подтверждения workers и tracker activation не выполняй.
-6. После подтверждения → RUNNING, Exploration и Task activation. В текущем диалоге продолжай после ответа; resume <ledger> — для нового контекста.
-
-### Task activation
-
-Перед задачей проверь внешние blockers; незавершённый или непроверяемый → HUMAN_ATTENTION. Внутреннюю зависимость считай выполненной по ledger с допустимым переносом findings, без ожидания tracker completion. Примени user_directives, установи current_task, task BASE = HEAD, ACTIVE и review iteration = 0. Перенеси все OPEN BLOCKER/MAJOR и согласованные FIX_NOW IDs предыдущих задач; Tracker activation, checkpoint, затем fresh implementer. При recovery counters и task BASE не сбрасывай.
-
-### Tracker activation
-
-Для task ID прочитай docs/agents/issue-tracker.md: только описанный способ workflow/transition. Переведи задачу в In Progress или документированный аналог до первого worker; если уже активна — не повторяй. Сохрани исходный/целевой статус, transition, timestamp и результат. Отсутствие task ID/документа, недоступность workflow или ошибка transition → NOT_APPLICABLE с причиной; это не разрешает пропускать получение задач и проверку blockers. API и статусы из памяти не подставляй.
-
-### Exploration
-
-Запускай одного fresh scout только при конкретных questions, ответы на которые нужны нескольким последующим workers. Локальное исследование одной задачи выполняет implementer. Вход scout: {spec_refs, head_sha, questions, notes_dir}; notes_dir — доступный workers каталог вне репозитория. Заметки содержат source_head, relevant_paths и evidence; controller хранит только metadata/пути. При recovery переиспользуй заметки; worker сверяет изменившиеся sources с кодом. Нет общих вопросов, scout или доступного notes_dir → NOT_APPLICABLE с причиной.
-
-## State machine
-
-### 0. Preflight
-
-До Exploration, tracker activation и workers проверь наличие проверяемых acceptance criteria. Неопределённая spec без наблюдаемого результата → HUMAN_ATTENTION. Для docs допустима проверяемая документальная цель без executable test.
-
-### 1. Implement
-
-Следующее действие — fresh implementer с {spec_refs текущей задачи и carried criteria, base_sha: task BASE, head_sha: HEAD, changed_files, findings_path, finding_ids} и context refs. Обязательные carried IDs: BLOCKER/MAJOR и согласованные FIX_NOW; eligible cheap MINOR — по Triage. Будущие задачи вне scope.
-
-Прими финальный JSON с per-ID dispositions, checks, standards_files и affected_review_axes. Заявленные исправления остаются OPEN до review. Проверь новый commit и совпадение HEAD; отсутствие commit → HUMAN_ATTENTION. Formatter/autofix выполнен worker до commit. Проверь успешное evidence финальных targeted checks. Checkpoint, затем Review.
-
-### 2. Review
-
-Допустимо отложить собственный review задачи:
-- Docs-only (§4): AWAITING_REVIEW с marker deferred.
-- Малая кодовая задача: AWAITING_REVIEW с marker deferred:batch, если весь worker diff <100 строк и <10 файлов; нет public API/schema/контрактов/migrations/test-architecture; финальные targeted checks worker успешны; задача не последняя; отложено менее трёх кодовых задач с последнего review. Docs-задачи счётчик не сбрасывают.
-- При carried IDs, активных critical, RED repair, merge reconciliation или явной user_directive review не откладывай. Изменение численных порогов — только явным решением человека, сохранённым в checkpoint.
-
-При отложении переходи к следующей задаче, а для последней — в Done для покрывающего review. При входе из Done покрывающее/full-spec review не откладывай повторно. Отложенные задачи остаются AWAITING_REVIEW до review и закрытия их critical findings.
-
-Для каждой оси base_sha = её last_reviewed_head, а до первого review — BASE. Выбор осей определяется всем непокрытым диапазоном этой оси, не только последним commit/задачей. Tests-only не освобождает от Standards. Spec обязателен для требований задачи; Standards пропускай только если применимые документированные правила отсутствуют или полностью покрыты уже успешными автоматическими checks для проверяемого scope. Будущие проверки финального gate основанием для skip не являются. Для skip сохрани range/reason как NOT_APPLICABLE coverage; last_reviewed_head не продвигай.
-
-После repair запускай union(originating axes незакрытых findings, affected_review_axes нового diff). Изменение observable behavior/контрактов/requirements требует Spec; структуры/conventions, включая tests/build tooling, — Standards. При сомнении обе. Непокрытые обязательные оси сохраняются даже без новых findings.
-
-Передавай {base_sha, head_sha, changed_files} и role-specific refs: Spec — spec_refs + review_mode; Standards — standards_files; для проверки исправлений — findings_path + finding_ids данной оси. Две нужные оси запускай параллельно. initial читает критерии задачи и общие контракты; delta — findings, затронутые критерии и diff с расширением по зависимостям.
-
-Принимай JSON контракта reviewer: {head, verdict, findings, dispositions}. Finding: {type, location, requirement_ref|standard_ref, evidence, fix}; disposition: {id, state: FIXED|OPEN, evidence}. NO_SPEC/BLOCKED_CONTEXT, неверный HEAD или неполный disposition → HUMAN_ATTENTION; такой отчёт не продвигает coverage. Controller назначает stable IDs и severity: wrong→BLOCKER, missing/partial/hard→MAJOR, judgement→MINOR. Не объединяй оси в один verdict.
-
-Completion: findings и explicit dispositions сохранены, last_reviewed_head каждой выполненной оси = проверенный HEAD, coverage записан. Дубли объединяй с сохранением IDs и истории, critical без прогресса два последовательных review → HUMAN_ATTENTION.
-
-Покрывающее Review включает spec_refs и standards всех непокрытых задач соответствующей оси. После успешного coverage/dispositions без active critical отметь покрытые задачи REVIEWED; если обязательная ось ещё не покрыта — оставь AWAITING_REVIEW. Reviewer последней задачи работает в режиме full-spec и проверяет всю spec, включая ранее завершённые задачи. Если она deferred, full-spec выполняется в Done. Сохрани full_spec_reviewed_head; при последующем repair Spec delta должен проверить затронутые критерии и влияние на общее покрытие, при неясности повтори full-spec.
-
-Переход после состоявшегося review:
-- Не последняя задача: critical без прогресса два review → HUMAN_ATTENTION; иначе перенеси все OPEN BLOCKER/MAJOR и согласованные FIX_NOW в следующий Implement, текущую задачу с critical оставь AWAITING_REVIEW.
-- Последняя задача: Triage по всему каскаду. Critical автоматически не откладывай в отдельный ticket.
-
-### 3. Triage — после последней задачи
-
-Лимиты: максимум две итерации исправления MINOR; затем оставшиеся MINOR — пакет решений человека (linked task либо rejection). Четыре critical review iterations или тот же critical без прогресса два review подряд → HUMAN_ATTENTION. Лимиты не закрывают findings.
-
-- Active critical → Revise.
-- Нет active critical → Human decisions для оставшихся MINOR/спорных findings; при отсутствии вопросов → Done.
-- Дешёвый MINOR можно исправить попутно с critical: один файл, до 20 LOC, без public API/schema/test-architecture/research. Остальные требуют решения человека.
-
-### 3.1 Revise
-
-Запусти fresh reviser с findings_path/finding_ids, spec_refs, standards_files, refs scope и directives_path при наличии. Прими commit/head, per-ID ACCEPTED|REJECTED, checks и affected_review_axes. ACCEPTED оставляет finding OPEN до review. Отклонённый critical → HUMAN_ATTENTION с evidence.
-
-При новом commit: проверь HEAD, выполни delta Review (§2), затем Triage; полный gate выполняется после разрешения findings и решений. При unchanged HEAD checks/review не повторяй; неразрешённые dispositions передай человеку.
-
-### 3.2 Human decisions
-
-Задай готовые вопросы одним batch: ID, severity, axis, location, evidence и proposed fix. Варианты MINOR: FIX_NOW, linked task, REJECTED(reason). MINOR >3 файлов, >100 LOC или меняющий test architecture — только linked task/rejection. Для critical прими correction/instruction; явный отказ исправлять → STOPPED_BY_HUMAN, не COMPLETED.
-
-До вопроса запиши WAITING_FOR_HUMAN и pending_action в checkpoint. После ответа сохрани решения, очисти pending_action и продолжи RUNNING, кроме terminal refusal. Разрешённые linked tasks создавай по docs/agents/issue-tracker.md, сохраняй IDs/URLs; только затем отмечай DEFERRED как WONT_FIX. Для FIX_NOW — §3.1.
-
-Указания человека во время worker сохраняй в user_directives; применяй перед следующим переходом и отмечай consumed. Явную просьбу остановить работу исполняй сразу.
-
-### 4. Verify — финальный gate
-
-Вход только из Done после review всего плана: все задачи REVIEWED, актуальны full-spec и последующие delta/Standards coverage, нет OPEN findings и незавершённых решений. Gate проверяет весь каскад, не отдельный ticket.
-
-Если HEAD == last_full_green_head и проверяемые входы не изменились, используй сохранённый GREEN. Незакоммиченные изменения проверяемых входов, неизвестный scope или недостоверное evidence → HUMAN_ATTENTION, не skip.
-
-При смене HEAD сначала проверь применимость сохранённого полного GREEN: controller использует уже полученный Git diff от last_full_green_head до HEAD и сохранённые validation plan/логи, без отдельного subagent или project checks. Переиспользование допустимо при одинаковом Git tree либо diff только пояснений/инструкций, если код, tests, fixtures/resources, build/config inputs и существенные условия среды неизменны, а выполненные команды и результаты удовлетворяют текущим требованиям проверок. Для второго случая controller читает только изменённый текст инструкций/документации; название файла, расширение и отсутствие конфликтов сами по себе ничего не доказывают. Новые обязательные проверки, изменение inputs/условий или необходимость дополнительного исследования → обычный gate. В gate evidence запиши исходный SHA/ссылку на GREEN, текущий HEAD и краткое доказательство применимости; last_full_green_head оставь SHA фактического прогона. Это reuse успешного gate, не docs-only NOT_APPLICABLE; review coverage проверяется отдельно.
-
-Docs-only означает только неисполняемый текст: расширение или каталог docs/ само по себе ничего не гарантирует. Executable examples, MDX logic, конфиги, agent instructions и build inputs требуют обычного gate при отсутствии применимого GREEN. Классификация опирается на worker handoff и repo configuration; сомнение → обычный gate. Docs-only gate = NOT_APPLICABLE допустим, если весь непроверенный диапазон от last_full_green_head (или BASE, если GREEN ещё нет) — такой текст. Сохрани диапазон и причину; last_full_green_head не обновляй.
-
-Иначе запусти fresh verifier с {head_sha, base_sha, changed_files, mode, validation_plan_path}; scope покрывает весь непроверенный диапазон, mode = final. Verifier определяет/переиспользует обязательные commands по repo configuration и выполняет один полный проход. GREEN → last_full_green_head = HEAD и evidence в checkpoint.
-
-RED → сохрани единый inventory и вызови fresh reviser с failure_inventory_path, spec/standards refs всего затронутого scope и finding_ids: [] при отсутствии review findings. Repair выполняет targeted checks и commit. Новый commit → обязательный delta Review → Triage → повторный полный gate; неизменный HEAD после repair, BLOCKED или три RED подряд → HUMAN_ATTENTION. Worker repair не увеличивает review iteration; последующий review учитывается обычным образом. GREEN сбрасывает RED counter; промежуточный review его не сбрасывает. Failures автоматически не отклоняй.
-
-Completion: GREEN для текущего HEAD по фактическому прогону либо доказанному reuse, или обоснованный NOT_APPLICABLE для всего непроверенного диапазона; затем Done.
-
-### 5. Done
-
-1. Сначала проверь обязательное coverage (§2) всего каскада. Для deferred задач выполни покрывающее review; если вся spec ещё не проверена — Spec full-spec. Новые findings или незавершённые решения → Triage. Когда все задачи REVIEWED, все carried IDs получили dispositions и нет OPEN findings/незавершённых решений, выполни финальный Verify (§4) всего каскада. Выполненные reviews и GREEN на том же HEAD не повторяй. RED repair проходит Review → Triage → финальный Verify.
-2. Проверь: все задачи REVIEWED, нет OPEN findings/незавершённых решений, все carried IDs получили dispositions, полное spec coverage с последующими delta актуально. Установи QUALITY = GREEN.
-3. Сохрани WAITING_FOR_HUMAN, completion pending_action и явно названный merge_target_branch. Запроси подтверждение merge, tracker completion задач/spec и cleanup созданного task-worktree. Без явного подтверждения этих действий не выполняй.
-4. После подтверждения — §6. После успешного merge сформируй итоговый отчёт и опубликуй в tracker при task ID; выполни подтверждённые completion/cleanup. Записывай результат каждого действия, не повторяй успешные при recovery. Ошибка → checkpoint и HUMAN_ATTENTION.
-5. Установи COMPLETED и удали ledger-каталог и notes_dir этого каскада.
-
-### 6. Merge reconciliation
-
-Только для подтверждённого merge_target_branch, отличного от task-ветки. Выполни rebase на актуальный parent tip; при конфликте/ошибке → HUMAN_ATTENTION, без автоматического retry loop. Если HEAD изменился, проверь review coverage по delta и выполни необходимый Review → Triage; затем в Verify (§4) проверь reuse полного GREEN до запуска verifier, сохранив утверждённый merge target. После восстановления QUALITY = GREEN выполни fast-forward в подтверждённую parent-ветку по workflow репозитория; простой push task-ветки не подтверждает merge. Ошибка fast-forward → HUMAN_ATTENTION.
-
-Tracker completion и cleanup разрешены только после подтверждённого merge. Удали только task-worktree, созданный для этой задачи, никогда parent/default worktree. Сохраняй результаты внешних действий и не повторяй успешные после recovery.
-
-## Conflicts
-
-Сохраняй evidence обеих осей. Неразрешённое spec/standard противоречие поведения/design или critical → HUMAN_ATTENTION; остальные спорные findings передай в Human decisions. Severity и лимиты не подменяют решение о корректности.
+1. Покрой deferred задачи Review; при отсутствии полного spec coverage — full-spec. Новые findings/решения → Triage. Только все REVIEWED, актуальные full-spec + delta/Standards и отсутствие OPEN/pending допускают один финальный Verify всего плана по протоколу. Выполненное review/GREEN не повторяй.
+2. После применимого GREEN/NOT_APPLICABLE установи QUALITY = GREEN. Зафиксируй merge_target_branch, отличную от task-ветки. Получи явную авторизацию merge, tracker completion/publication задач/spec и удаления созданного task-worktree; уже данную не повторяй.
+3. Rebase на актуальный parent tip; конфликт/ошибка → HUMAN_ATTENTION без retry loop. Новый HEAD → необходимый delta Review → Triage → Verify с проверкой reuse, сохраняя утверждённый target. Затем fast-forward в parent по repo workflow; push task-ветки не означает merge.
+4. После успешного merge — согласованные tracker/completion actions, cleanup task-worktree и краткий итог. Успешные внешние действия при recovery не повторяй. Ошибка сохраняет checkpoint. COMPLETED → удаление всего каталога запуска по протоколу без архивации.

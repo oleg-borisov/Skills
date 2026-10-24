@@ -17,7 +17,7 @@
 | .zcode/agents/ | Генерируемые Markdown profiles только для ZCode leaf-agents. |
 | docs/agents/ | Инструкции интеграций, например issue-tracker.md. |
 
-Каждый `skills/rr-loop/SKILL.md`, `skills/rr-cascade-loop-fast/SKILL.md` и `skills/rr-parallel-loop/SKILL.md` — source of truth своего controller workflow. Отдельных custom controller-agents нет.
+Каждый `skills/rr-loop/SKILL.md`, `skills/rr-cascade-loop-fast/SKILL.md` и `skills/rr-parallel-loop/SKILL.md` задаёт порядок своего controller workflow. Общие контракты ledger, handoff, review/gate и cleanup — в `skills/rr-loop/references/protocol.md`, обязательном для primary-controller всех трёх skills. Leaf-agents работают по своим контрактам; controller protocol читают только как объект задачи на сами workflow assets. Отдельных custom controller-agents нет.
 
 `skills/tdd/SKILL.md` — локальная версия одноимённого skill для TDD-задач в этом репозитории.
 

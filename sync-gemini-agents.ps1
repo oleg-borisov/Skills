@@ -93,21 +93,49 @@ $outputSkillsDir = Join-Path $pluginDir 'skills'
 $skillNames = @('rr-loop', 'rr-cascade-loop-fast', 'rr-parallel-loop')
 
 foreach ($skillName in $skillNames) {
-    $sourceSkillPath = Join-Path $skillsDir "$skillName\SKILL.md"
-    if (Test-Path -LiteralPath $sourceSkillPath) {
-        $skillTargetDir = Join-Path $outputSkillsDir $skillName
-        if (-not (Test-Path -LiteralPath $skillTargetDir)) {
-            New-Item -ItemType Directory -Path $skillTargetDir -Force | Out-Null
-        }
-        $skillContent = Get-Content -LiteralPath $sourceSkillPath -Raw
-        $pattern1 = 'Все пять основных named-ролей и механизм subagents обязательны\. При отсутствии capability → BLOCKED_UNSUPPORTED_HOST, запиши причину в checkpoint и остановись\. Недоступность scout → Exploration = NOT_APPLICABLE\.'
-        $replacement1 = 'Все пять основных named-ролей и механизм subagents обязательны. В Antigravity leaf-agents запускаются через TypeName: `self`, задавая Role именем роли (`Implementer`, `Verifier`, `Standards Reviewer`, `Spec Reviewer`, `Reviser`, `Scout`) и передавая контракт роли в системной инструкции. При отсутствии capability → BLOCKED_UNSUPPORTED_HOST, запиши причину в checkpoint и остановись. Недоступность scout → Exploration = NOT_APPLICABLE.'
-        $pattern2 = '- Все workers — прямые дети primary\. Обязательны implementer, verifier, standards-reviewer, spec-reviewer, reviser; scout опционален\. Новых ролей и вложенных controller-agents нет\.'
-        $replacement2 = '- Все workers — прямые дети primary. Обязательны implementer, verifier, standards-reviewer, spec-reviewer, reviser; scout опционален. Новых ролей и вложенных controller-agents нет. В Antigravity leaf-agents запускаются через TypeName: `self`, задавая Role именем роли (`Implementer`, `Verifier`, `Standards Reviewer`, `Spec Reviewer`, `Reviser`, `Scout`) и передавая контракт роли в системной инструкции.'
-
-        $adaptedContent = $skillContent -replace $pattern1, $replacement1 -replace $pattern2, $replacement2
-        Set-Content -LiteralPath (Join-Path $skillTargetDir 'SKILL.md') -Value $adaptedContent -Encoding utf8NoBOM
+    $sourceSkillDir = Join-Path $skillsDir $skillName
+    if (-not (Test-Path -LiteralPath (Join-Path $sourceSkillDir 'SKILL.md'))) {
+        throw "Отсутствует канонический skill: $sourceSkillDir"
     }
+    # References — исполняемая часть контракта, включая общий протокол rr-loop.
+    foreach ($sourceFile in Get-ChildItem -LiteralPath $sourceSkillDir -File -Recurse) {
+        $relativePath = [IO.Path]::GetRelativePath($sourceSkillDir, $sourceFile.FullName)
+        $targetPath = Join-Path (Join-Path $outputSkillsDir $skillName) $relativePath
+        New-Item -ItemType Directory -Path (Split-Path -Parent $targetPath) -Force | Out-Null
+        $content = [IO.File]::ReadAllText($sourceFile.FullName)
+        if ($skillName -eq 'rr-loop' -and $relativePath.Replace('\', '/') -eq 'references/protocol.md') {
+            $content = $content.Replace(
+                'Нет named role/subagents → BLOCKED_UNSUPPORTED_HOST, без подмены роли.',
+                'В Antigravity запускай leaf-agents через TypeName: `self`, Role = имя роли (`Implementer`, `Verifier`, `Spec Reviewer`, `Standards Reviewer`, `Reviser`, `Scout`) с контрактом роли в системной инструкции. Нет этого механизма → BLOCKED_UNSUPPORTED_HOST.')
+        }
+        Set-Content -LiteralPath $targetPath -Value $content.TrimEnd() -Encoding utf8NoBOM
+    }
+}
+
+# Удаляем прежние известные references после переноса в общий rr-loop каталог.
+$legacyReferencesDir = Join-Path $outputSkillsDir 'rr-parallel-loop\references'
+foreach ($name in @('recovery.md', 'completion.md')) {
+    $legacyPath = Join-Path $legacyReferencesDir $name
+    if (Test-Path -LiteralPath $legacyPath) {
+        Remove-Item -LiteralPath $legacyPath -Force
+    }
+}
+if ((Test-Path -LiteralPath $legacyReferencesDir) -and
+    -not (Get-ChildItem -LiteralPath $legacyReferencesDir -Force | Select-Object -First 1)) {
+    Remove-Item -LiteralPath $legacyReferencesDir
+}
+
+# Удаляем прежние известные references после переноса в общий rr-loop каталог.
+$legacyReferencesDir = Join-Path $outputSkillsDir 'rr-parallel-loop\references'
+foreach ($name in @('recovery.md', 'completion.md')) {
+    $legacyPath = Join-Path $legacyReferencesDir $name
+    if (Test-Path -LiteralPath $legacyPath) {
+        Remove-Item -LiteralPath $legacyPath -Force
+    }
+}
+if ((Test-Path -LiteralPath $legacyReferencesDir) -and
+    -not (Get-ChildItem -LiteralPath $legacyReferencesDir -Force | Select-Object -First 1)) {
+    Remove-Item -LiteralPath $legacyReferencesDir
 }
 
 # 5. Правило плагина для Antigravity
