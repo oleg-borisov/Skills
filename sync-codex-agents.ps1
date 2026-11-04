@@ -31,7 +31,7 @@ $profiles = [ordered]@{
         SandboxMode = 'read-only'
     }
     'reviser' = @{
-        Model = 'gpt-6.1-sol'
+        Model = 'gpt-6.1-terra'
         ReasoningEffort = 'medium'
         SandboxMode = 'workspace-write'
     }
