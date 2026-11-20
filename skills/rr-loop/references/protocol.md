@@ -18,12 +18,6 @@ Exploration: один scout только для общих нескольким 
 
 Tracker: API/статусы только из `docs/agents/issue-tracker.md`. До первого worker задачи активируй In Progress/аналог; уже активное не повторяй. Нет ID/интеграции/transition или ошибка activation → NOT_APPLICABLE с причиной; tickets/blockers всё равно проверяй.
 
-## Долгоживущий тестовый ресурс
-
-Если проверки проекта требуют долгоживущего тестового ресурса, controller выделяет его до первого использования, фиксирует запись о владельце и сохраняет ссылку на неё в ledger. Передавай ресурс одному worker за раз. Перед следующей передачей убедись, что предыдущий прогон освободил ресурс, включая его дочерние процессы. Для восстановления того же прогона передай управление им без повторного запуска. Сохраняй в ledger актуального пользователя ресурса и ссылку на сохранённый статус прогона, если раннер её предоставляет.
-
-В handoff ресурса передавай только `test_resource: {id, connection, owner_ref}` (идентификатор, способ подключения и ссылка на запись о владельце). Команды и особенности среды бери из документации проекта. Раннер восстанавливает временные настройки, изменённые прогоном. Controller отвечает за остановку выделенного ресурса, когда workflow больше в нём не нуждается, в том числе при прекращении workflow. Подтверди остановку до удаления ledger.
-
 ## Snapshot ledger
 
 Только controller атомарно заменяет LEDGER_DIR/state.json через temporary file того же каталога. Handoffs/refs/manifests/notes/inventory и управляемые логи — под LEDGER_DIR, штатные build outputs — на своих местах. Каталог принадлежит одному запуску; workers получают абсолютные пути.
@@ -66,7 +60,7 @@ Reuse полного GREEN: тот же HEAD/inputs либо одинаково�
 
 Без применимого GREEN gate NOT_APPLICABLE лишь для всего непроверенного диапазона неисполняемого текста по worker evidence/repo config. Agent instructions, MDX, executable examples, configs/build inputs требуют gate; сомнение → verifier. Запиши range/reason, last_full_green_head не меняй.
 
-Иначе fresh verifier: `{base_sha: last_full_green_head или BASE,head_sha: HEAD,artifacts_dir: LEDGER_DIR,validation_plan_path?}` и refs scope. При необходимости передай test_resource, а при восстановлении передай ссылку на сохранённый статус прогона (run_status_ref). Один full-suite проход по repo config. validation_plan одновременно evidence команд/results, один inventory failures, логи по refs. GREEN → last_full_green_head = HEAD, green_ref = handoff, consecutive_red = 0. RED → fresh reviser с inventory/refs scope и finding_ids: [] без review findings; targeted repair/commit → delta Review → Triage → новый gate. Repair не расходует review counter, сам review расходует; RED counter review не сбрасывает. Unchanged HEAD после repair, три RED подряд или BLOCKED без доказанно устранимой технической причины → HUMAN_ATTENTION.
+Иначе fresh verifier: `{base_sha: last_full_green_head или BASE,head_sha: HEAD,artifacts_dir: LEDGER_DIR,validation_plan_path?}` и refs scope. Один full-suite проход по repo config. validation_plan одновременно evidence команд/results, один inventory failures, логи по refs. GREEN → last_full_green_head = HEAD, green_ref = handoff, consecutive_red = 0. RED → fresh reviser с inventory/refs scope и finding_ids: [] без review findings; targeted repair/commit → delta Review → Triage → новый gate. Repair не расходует review counter, сам review расходует; RED counter review не сбрасывает. Unchanged HEAD после repair, три RED подряд или BLOCKED без доказанно устранимой технической причины → HUMAN_ATTENTION.
 
 ## Завершение
 
