@@ -24,7 +24,7 @@ LEDGER_DIR = `.scratch/rr-parallel-loop/<integration-branch>/` в исходно
 1. Проверь нетерминальные ledgers/claim по spec/task/веткам до ранних выходов. Не запускай дубликат.
 2. Прочитай spec и готовые tickets: criteria, статусы, комментарии, зависимости; tracker по `docs/agents/issue-tracker.md`. Все завершены → отчёт без workers. Нет готового графа → предложи rr-loop, не создавай tickets/новый workflow автоматически. Неопределённость criteria, циклы, неизвестные связи/статусы, конфликт источников или непроверяемый blocker → HUMAN_ATTENTION.
 3. Сохрани origin, BASE = HEAD и parent target. У завершённых/внешних prerequisites нужен код в BASE или подтверждающее evidence: одного tracker-статуса недостаточно. Не придумывай продуктовые зависимости.
-4. Назначь write_scope задач по tickets/standards/notes, включая tests/fixtures/generated outputs; пересекающиеся/неизвестные scopes и общие test resources сериализуй. Это lock, не зависимость spec. max_workers ограничь host slots/ресурсами; неизвестна независимость → 1. Подтверждённые особенности запуска checks сохрани один раз в plan/notes.
+4. По умолчанию установи `max_workers` равным максимальному числу исполнителей, которое поддерживают доступные слоты хоста и ресурсы. Если пользователь задал лимит, используй его в пределах этой ёмкости. Назначь write_scope задач по tickets/standards/notes, включая tests/fixtures/generated outputs. Сериализуй задачи с пересекающимися/неизвестными scopes или общими test resources через locks при dispatch. Подтверждённые особенности запуска checks сохрани один раз в plan/notes.
 5. Покажи graph/scopes/max_workers/integration/parent и final review → final gate. Нужны согласованный план и test seams, если их требует TDD; уже данное согласование не повторяй. До него WAITING_FOR_HUMAN/pending_action. Изменение требований/графа требует нового согласования.
 6. После согласования и claim создай integration worktree/ветку от BASE, имена по repo conventions/primary task ID. Выполни условный Exploration по протоколу. Dispatch задаёт абсолютный cwd, branch, expected HEAD и назначение; все worker операции только в этом cwd. Host не адресует worktrees → BLOCKED_UNSUPPORTED_HOST.
 
@@ -32,13 +32,13 @@ LEDGER_DIR = `.scratch/rr-parallel-loop/<integration-branch>/` в исходно
 
 States: PENDING → RUNNING → READY_TO_INTEGRATE → INTEGRATED → REVIEWED. Неполный/blocked handoff state не продвигает. Frontier: PENDING с INTEGRATED/REVIEWED predecessors, подтверждённо завершёнными внешними blockers и свободным write_scope. Предпочитай разблокирующие больше задач, затем ID/path; работающий независимый worker не задерживает ready задачу.
 
-До интеграции всех задач повторяй:
+При первом dispatch и после каждой интеграции заполняй доступные slots задачами из frontier в пределах `max_workers`. До интеграции всех задач повторяй:
 
 1. Примени directives, проверь blockers, создай task worktree/ветку от текущего integration HEAD; сохрани task_base/dependency_shas. Нет slots → событийное ожидание любого worker.
 2. Tracker activation по протоколу; сохрани текущий dispatch intent/owner. Fresh implementer получает spec_refs ticket/общих контрактов, `{base_sha: task_base, head_sha: task_base}`, directives_path с write_scope и refs. Общий API/schema требует targeted checks затронутых consumers/fixtures, состав определяет worker.
 3. Прими handoff: сверь cwd/branch/head, ancestry task_base, чистоту inputs, фактические Git paths со scope и успешные targeted checks. Blocker/scope request — правила ниже/recovery; отсутствие нового commit или неожиданные правки → HUMAN_ATTENTION. Проверенный завершённый scope → READY_TO_INTEGRATE.
 4. Последовательно включай READY ветки: чистый integration, ожидаемый tip и точный source SHA; checkpoint с intent `{task,source_sha,integration_before}` → обычный merge без squash/rebase → inclusion evidence/integration HEAD/INTEGRATED. Source commit остаётся ancestor integration. Освободи scope, сверни завершённую операцию в task inclusion evidence.
-5. Немедленно пересчитай frontier и заполни slots. Базы работающих workers не меняй; синхронизируй только при конфликте. Нет full gate/review на каждый ticket.
+5. Немедленно пересчитай frontier. Базы работающих workers не меняй; синхронизируй только при конфликте. Нет full gate/review на каждый ticket.
 
 Frontier пуст, workers нет, PENDING остались → HUMAN_ATTENTION. Сообщение о продуктовой ошибке/нарушенном контракте → останови dispatch, безопасная остановка/recovery; известную поломку не распространяй.
 
