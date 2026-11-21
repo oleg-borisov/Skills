@@ -12,14 +12,21 @@ Review выполняется на объединённом результате
 что последовательные workflows. Логические сценарии: [прогон контракта](docs/validation/rr-parallel-loop.md).
 
 Во всех трёх workflows workers выполняют targeted checks; после review,
-исправлений и решений человека независимый verifier выполняет полный финальный
-gate. В rr-loop это итог задачи, в cascade/parallel — всего плана. RED repair
-проходит targeted checks → review → triage → повторный полный gate. Cascade
+исправлений и разбора замечаний независимый verifier выполняет gate — финальную
+проверку. В rr-loop это итог задачи, в cascade/parallel — всего плана. RED repair
+проходит targeted checks → review → triage → повторный gate. Cascade
 сохраняет промежуточные и покрывающие review. Решение: [ADR-0005](docs/adr/0005-final-gate-after-review.md).
 
 Workers до handoff выполняют быстрый ярус проверок repo, повторное Spec review
 ограничено diff исправления, замечания к неисполняемой документации идут одним
 batch: [ADR-0006](docs/adr/0006-fast-tier-and-bounded-review.md).
+
+На обычном пути запуск не останавливается на человеке: вызов навыка — согласие
+на merge при quality GREEN, план показывается без подтверждения:
+[ADR-0007](docs/adr/0007-run-without-human-stops.md). Механику ledger, handoff,
+gate и интеграции выполняет `rr.py`; сверка хешей, снимок правок и захват
+запуска убраны: [ADR-0008](docs/adr/0008-no-hash-snapshot-claim.md). Цена
+запуска до и после: [эталонные сценарии](docs/validation/run-cost.md).
 
 Синхронизация локальных окружений:
 

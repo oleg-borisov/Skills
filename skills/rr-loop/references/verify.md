@@ -1,19 +1,28 @@
-# Финальный Verify и завершение
+# Verify и завершение
 
-Часть [общего протокола](protocol.md); читай перед финальным Verify.
+Часть [общего протокола](protocol.md); читай перед Verify.
 
 ## Verify
 
-Вход: актуальное обязательное coverage, нет OPEN/pending, весь план завершён по SKILL.md. Один полный gate итога, не каждого commit. HEAD/inputs неподвижны; dirty inputs/недостоверное evidence → HUMAN_ATTENTION.
+Вход: актуальное обязательное coverage, нет OPEN findings, весь план завершён по SKILL.md. Один gate итога, не каждого commit. HEAD/inputs неподвижны; dirty inputs/недостоверное evidence → HUMAN_ATTENTION.
 
-Reuse полного GREEN: тот же HEAD/inputs либо одинаковое Git tree при прежних требованиях/условиях. Diff только пояснений/инструкций допускает reuse, если controller по имеющимся diff/plan/логам доказывает неизменность code/tests/fixtures/resources/build/config inputs, существенной среды и достаточность команд. Для этого читает только изменённый текст docs; отдельный агент/check не нужен. Новые требования/inputs/условия или нужда в исследовании → verifier. Расширение файла/чистый merge не доказательство. Сохрани исходный SHA/ref GREEN, итоговый HEAD и proof; last_full_green_head остаётся SHA прогона. Review coverage независимо.
+Reuse полного GREEN (`RR gate --reuse`): тот же HEAD/inputs либо одинаковое Git tree при прежних требованиях/условиях. Diff только пояснений/инструкций допускает reuse, если controller по имеющимся diff/commands/логам доказывает неизменность code/tests/fixtures/resources/build/config inputs, существенной среды и достаточность команд; proof передай в `--reuse`. Для этого читает только изменённый текст docs; отдельный агент/check не нужен. Новые требования/inputs/условия или нужда в исследовании → verifier. Расширение файла/чистый merge не доказательство. Review coverage независимо.
 
-Без применимого GREEN gate NOT_APPLICABLE лишь для всего непроверенного диапазона неисполняемого текста по worker evidence/repo config. Agent instructions, MDX, executable examples, configs/build inputs требуют gate; сомнение → verifier. Запиши range/reason, last_full_green_head не меняй.
+Без применимого GREEN gate NOT_APPLICABLE (`RR gate --not-applicable <reason>`) лишь для всего непроверенного диапазона неисполняемого текста по worker evidence/repo config. Agent instructions, MDX, executable examples, configs/build inputs требуют gate; сомнение → verifier.
 
-Иначе fresh verifier: `{base_sha: last_full_green_head или BASE,head_sha: HEAD,artifacts_dir: LEDGER_DIR,validation_plan_path?}` и refs scope. Один full-suite проход по repo config. validation_plan одновременно evidence команд/results, один inventory failures, логи по refs. GREEN → last_full_green_head = HEAD, green_ref = handoff, consecutive_red = 0. RED → fresh reviser с inventory/refs scope и finding_ids: [] без review findings; targeted repair/commit → delta Review → Triage → новый gate с failure_inventory_path прежнего RED: verifier сначала повторяет только упавшие checks и идёт на полный проход лишь после их успеха. Repair не расходует review counter, сам review расходует; RED counter review не сбрасывает. Unchanged HEAD после repair, три RED подряд или BLOCKED без доказанно устранимой технической причины → HUMAN_ATTENTION.
+Иначе fresh verifier: `{base_sha: green.head или BASE, head_sha: HEAD, artifacts_dir: LEDGER_DIR, gate_path?}` и refs scope; его JSON — `RR gate`. RED → fresh reviser с gate_path и finding_ids: [] без review findings; targeted repair/commit → delta Review → Triage → новый gate с gate_path прежнего RED: verifier сначала повторяет только упавшие checks и идёт на полный проход лишь после их успеха. Unchanged HEAD после repair, `stop` в ответе CLI либо BLOCKED без доказанно устранимой технической причины → HUMAN_ATTENTION.
+
+## Merge: rr-loop и cascade
+
+rr-parallel-loop завершается по [completion](completion.md).
+
+1. Нужны quality GREEN и согласие на merge; отказ в согласии → вопрос, WAITING_FOR_HUMAN/pending_action. Rebase на актуальный tip цели; конфликт/ошибка → HUMAN_ATTENTION без автоматического retry.
+2. Новый HEAD → `RR set head=<sha>` → необходимый delta Review → Triage → Verify с проверкой reuse GREEN.
+3. При quality GREEN — fast-forward цели по repo workflow. Push task-ветки не означает merge; ошибка → HUMAN_ATTENTION.
+4. После успешного merge — согласованные tracker/completion actions и cleanup созданного task-worktree. Успешные внешние действия не повторяй после recovery. Ошибка оставляет checkpoint.
 
 ## Завершение
 
-COMPLETED только после успешного подтверждённого merge и согласованных completion actions. Сначала итог в диалог/разрешённый tracker: SHA/PR, результаты проверок, human dispositions/ограничения. Не ссылайся на удаляемые логи как доступный архив.
+COMPLETED только после успешного подтверждённого merge и согласованных completion actions. Сначала итог в диалог/разрешённый tracker: результат, SHA/PR, проверки, оставленные замечания (`left`), human dispositions/linked tasks и ограничения. Не ссылайся на удаляемые логи как доступный архив.
 
-После COMPLETED выполни `RR cleanup` без нового вопроса, чтения/редактирования содержимого и архивации; writers нет. CLI проверяет status и путь каталога запуска. Ошибка cleanup → сохрани состояние/путь, сообщи. Worktrees удаляются отдельно по авторизации; parent/default/shared сохраняется. Незавершённый/HUMAN_ATTENTION/STOP запуск не удаляй.
+Затем `RR set status=COMPLETED` и `RR cleanup` без нового вопроса, чтения содержимого и архивации; writers нет. Ошибка cleanup → сохрани состояние/путь, сообщи. Worktrees удаляются отдельно по согласию; parent/default/shared сохраняется. Незавершённый/HUMAN_ATTENTION/STOP запуск не удаляй.

@@ -28,5 +28,6 @@
 
 - `agents/*.md` → перегенерируй профили: `.\sync-codex-agents.ps1`, `.\sync-zcode-agents.ps1`, `.\sync-qoder-agents.ps1`, `.\sync-devin-agents.ps1`. Канонические agents и Markdown-профили не задают `model`; модели Codex — в `$profiles` генератора.
 - `skills/rr-loop/scripts/rr.py` → `python -m unittest discover -s tests`.
+- Новый user-invoked skill (`disable-model-invocation: true`) → добавь `agents/openai.yaml` с `policy.allow_implicit_invocation: false`: Codex первое поле не читает.
 - Установка на hosts — `link-*` скрипты по [docs/hosts.md](docs/hosts.md); skills подключены ссылками, профили agents копируются.
 - Изменение поведения workflow фиксируй ADR в `docs/adr/`, если оно трудно обратимо и неочевидно.

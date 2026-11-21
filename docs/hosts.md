@@ -114,3 +114,4 @@ OpenCode. Никакой скрипт модели для OpenCode не уста
 - `agents/*.md`, `.zcode/agents/*.md`, `.qoder/agents/*.md`, `.devin/agents/*.md` и устанавливаемые OpenCode agents не содержат `model` и наследуют дефолтную модель хоста; `opencode.json` не содержит `agents.<rr-loop>.model`.
 - Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop-fast, $rr-cascade-loop-fast, /rr-parallel-loop, $rr-parallel-loop, /tdd или $tdd.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.
+- У трёх rr skills и `wait-what-ru` есть `agents/openai.yaml` с `policy.allow_implicit_invocation: false`: Codex не читает `disable-model-invocation` и без этого файла показывает skill модели.
