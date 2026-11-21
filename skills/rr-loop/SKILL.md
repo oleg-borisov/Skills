@@ -12,7 +12,7 @@ disable-model-invocation: true
 
 1. Проверь существующий ledger по протоколу. Recovery продолжает сохранённую фазу, не новый Implement.
 2. Прочитай spec: нужны проверяемые acceptance criteria; для docs достаточно наблюдаемой документальной цели. Неопределённость → HUMAN_ATTENTION.
-3. Новый запуск: текущий checkout, BASE = HEAD до правок, RUNNING/UNVERIFIED; имена веток по repo conventions/task ID. Окружение сохраняется до reconciliation. Ledger: `.scratch/rr-loop/<branch>/`.
+3. Новый запуск через `RR init`: текущий checkout, BASE = HEAD до правок, RUNNING/UNVERIFIED; имена веток по repo conventions/task ID. Окружение сохраняется до reconciliation. Ledger: `.scratch/rr-loop/<branch>/`.
 4. Выполни условный Exploration и tracker activation по протоколу. Следующее действие — fresh implementer с spec_refs и `{base_sha: BASE, head_sha: HEAD}`. Controller до dispatch product code не исследует. Если primary уже изменил product code вместо worker → HUMAN_ATTENTION.
 
 ## Implement → Review → Triage

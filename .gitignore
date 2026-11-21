@@ -14,3 +14,5 @@ $RECYCLE.BIN/
 # Local Agent Skills discovery junction created by link-codex.ps1
 .agents/
 .gemini/
+
+__pycache__/

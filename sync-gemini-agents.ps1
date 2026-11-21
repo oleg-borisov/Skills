@@ -97,8 +97,8 @@ foreach ($skillName in $skillNames) {
     if (-not (Test-Path -LiteralPath (Join-Path $sourceSkillDir 'SKILL.md'))) {
         throw "Отсутствует канонический skill: $sourceSkillDir"
     }
-    # References — исполняемая часть контракта, включая общий протокол rr-loop.
-    foreach ($sourceFile in Get-ChildItem -LiteralPath $sourceSkillDir -File -Recurse) {
+    # References и scripts — исполняемая часть контракта, включая общий протокол и CLI rr-loop.
+    foreach ($sourceFile in Get-ChildItem -LiteralPath $sourceSkillDir -File -Recurse | Where-Object FullName -NotMatch '__pycache__') {
         $relativePath = [IO.Path]::GetRelativePath($sourceSkillDir, $sourceFile.FullName)
         $targetPath = Join-Path (Join-Path $outputSkillsDir $skillName) $relativePath
         New-Item -ItemType Directory -Path (Split-Path -Parent $targetPath) -Force | Out-Null
