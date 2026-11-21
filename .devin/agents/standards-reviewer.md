@@ -23,4 +23,4 @@ Controller skills/protocol/recovery/completion читай только как о
 Один финальный JSON:
 {head, verdict: APPROVE|FINDINGS|BLOCKED_CONTEXT, findings?:[{type: hard|judgement,location,standard_ref,evidence,fix}], dispositions?:[{id,state: FIXED|OPEN,evidence}], blocker?}
 
-Все значимые findings сохрани; пустые optional поля, пересказ diff/standards и логи опускай. blocker — только недостающий источник/причина BLOCKED_CONTEXT.
+Все значимые findings сохрани; пустые optional поля, пересказ diff/standards и логи опускай. blocker — только недостающий источник/причина BLOCKED_CONTEXT. Прогресс и промежуточные сообщения controller не отправляй: единственный результат — финальный JSON.

@@ -37,7 +37,7 @@ States: PENDING → RUNNING → READY_TO_INTEGRATE → INTEGRATED → REVIEWED. 
 
 1. Примени directives, проверь blockers, создай task worktree/ветку от текущего integration HEAD; сохрани task_base/dependency_shas. Нет slots → событийное ожидание любого worker.
 2. Tracker activation по протоколу; сохрани текущий dispatch intent/owner. Fresh implementer получает spec_refs ticket/общих контрактов, `{base_sha: task_base, head_sha: task_base}`, directives_path с write_scope и refs. Общий API/schema требует targeted checks затронутых consumers/fixtures, состав определяет worker.
-3. Прими handoff: сверь cwd/branch/head, ancestry task_base, чистоту inputs, фактические Git paths со scope и успешные targeted checks. Blocker/scope request — правила ниже/recovery; отсутствие нового commit или неожиданные правки → HUMAN_ATTENTION. Проверенный завершённый scope → READY_TO_INTEGRATE.
+3. Прими handoff: сверь cwd/branch/head, ancestry task_base, чистоту inputs, фактические Git paths со scope и успешные targeted checks/быстрый ярус. Blocker/scope request — правила ниже/recovery; отсутствие нового commit или неожиданные правки → HUMAN_ATTENTION. Проверенный завершённый scope → READY_TO_INTEGRATE.
 4. Последовательно включай READY ветки: чистый integration, ожидаемый tip и точный source SHA; checkpoint с intent `{task,source_sha,integration_before}` → обычный merge без squash/rebase → inclusion evidence/integration HEAD/INTEGRATED. Source commit остаётся ancestor integration. Освободи scope, сверни завершённую операцию в task inclusion evidence.
 5. Немедленно пересчитай frontier. Базы работающих workers не меняй; синхронизируй только при конфликте. Нет full gate/review на каждый ticket.
 

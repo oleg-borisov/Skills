@@ -12,12 +12,12 @@ disable-model-invocation: true
 
 1. Проверь существующий ledger по протоколу. Recovery продолжает сохранённую фазу, не новый Implement.
 2. Прочитай spec: нужны проверяемые acceptance criteria; для docs достаточно наблюдаемой документальной цели. Неопределённость → HUMAN_ATTENTION.
-3. Новый запуск: текущий checkout, BASE = HEAD до правок, RUNNING/RED; имена веток по repo conventions/task ID. Окружение сохраняется до reconciliation. Ledger: `.scratch/rr-loop/<branch>/`.
+3. Новый запуск: текущий checkout, BASE = HEAD до правок, RUNNING/UNVERIFIED; имена веток по repo conventions/task ID. Окружение сохраняется до reconciliation. Ledger: `.scratch/rr-loop/<branch>/`.
 4. Выполни условный Exploration и tracker activation по протоколу. Следующее действие — fresh implementer с spec_refs и `{base_sha: BASE, head_sha: HEAD}`. Controller до dispatch product code не исследует. Если primary уже изменил product code вместо worker → HUMAN_ATTENTION.
 
 ## Implement → Review → Triage
 
-Прими handoff implementer: новый head, успешные финальные targeted checks, standards refs и affected_review_axes. Сверь Git metadata; отсутствие нового commit без технически незавершённой попытки → HUMAN_ATTENTION.
+Прими handoff implementer: новый head, успешные финальные targeted checks и быстрый ярус, standards refs и affected_review_axes. Сверь Git metadata; отсутствие нового commit без технически незавершённой попытки → HUMAN_ATTENTION.
 
 Выполни Review/Triage по протоколу. После каждого repair с новым commit — delta Review; полный gate только после разрешения findings и решений человека. При unchanged HEAD не повторяй checks/review; неразрешённый вопрос передай человеку.
 

@@ -15,4 +15,4 @@ Controller skills/protocol/recovery/completion читай только как о
 
 ## Output
 
-Один финальный JSON: {notes:[path], blocker?}. Ответы/evidence уже в заметках, повторять их в handoff не нужно. Пустой blocker опускай.
+Один финальный JSON: {notes:[path], blocker?}. Ответы/evidence уже в заметках, повторять их в handoff не нужно. Пустой blocker опускай. Прогресс и промежуточные сообщения controller не отправляй: единственный результат — финальный JSON.

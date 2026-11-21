@@ -24,14 +24,14 @@ Task states: PENDING → ACTIVE → AWAITING_REVIEW → REVIEWED. REVIEWED оз�
 
 Следующее действие — fresh implementer с spec_refs задачи/общих контрактов и carried criteria, `{base_sha: task BASE, head_sha: HEAD}`, findings_path/IDs и context refs. Обязательны все OPEN BLOCKER/MAJOR и согласованные FIX_NOW; дешёвые MINOR — по протоколу. Будущие задачи вне scope; controller product code до dispatch не исследует.
 
-Прими новый head, успешные targeted checks, rejected и affected_review_axes; сверь Git metadata. Нет нового commit → HUMAN_ATTENTION, кроме технически незавершённой попытки. Worker acceptance не закрывает findings. Затем Review либо допустимое отложение.
+Прими новый head, успешные targeted checks и быстрый ярус, rejected и affected_review_axes; сверь Git metadata. Нет нового commit → HUMAN_ATTENTION, кроме технически незавершённой попытки. Worker acceptance не закрывает findings. Затем Review либо допустимое отложение.
 
 ## Review или deferred
 
 Собственный review задачи можно отложить:
 
 - Только неисполняемый текст → AWAITING_REVIEW/deferred.
-- Малая кодовая задача → AWAITING_REVIEW/deferred:batch: весь diff <100 строк и <10 файлов; нет public API/schema/контрактов/migrations/test-architecture; targeted checks успешны; задача не последняя; отложено <3 кодовых задач после последнего review. Docs-задачи счётчик не сбрасывают.
+- Малая кодовая задача → AWAITING_REVIEW/deferred:batch: весь diff <100 строк и <10 файлов; нет public API/schema/контрактов/migrations/test-architecture; targeted checks и быстрый ярус успешны; задача не последняя; отложено <3 кодовых задач после последнего review. Docs-задачи счётчик не сбрасывают.
 - Carried IDs, active critical, RED repair, reconciliation или явная user_directive запрещают отложение. Пороги меняются только явным решением человека.
 
 Отложена не последняя → следующая задача; последняя docs-only → Done для покрывающего review, без повторного отложения. Иначе Review по общему протоколу: refs/Standards всех непокрытых задач каждой оси. После coverage/dispositions без critical покрытые задачи REVIEWED; иначе AWAITING_REVIEW.

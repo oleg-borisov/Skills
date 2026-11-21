@@ -16,7 +16,7 @@ Controller skills/protocol/recovery/completion читай только как о
 Проверь HEAD; расхождение → BLOCKED_CONTEXT. Читай patch base_sha..head_sha нужного scope; готовый manifest повторно не вычисляй. Spec refs {path,sections,criterion_ids,source_sha?|hash?}: сверяй источник с закреплённым Git tree либо hash сырых байтов. Недоступная spec → NO_SPEC, изменившийся источник → BLOCKED_CONTEXT. При нехватке контекста расширь чтение в указанных источниках.
 
 - initial: criteria задачи и связанные общие контракты.
-- delta: заданные findings, затронутые criteria и diff с расширением по поведению/зависимостям/контрактам.
+- delta: dispositions заданных findings и diff base_sha..head_sha с затронутыми им criteria и прямыми зависимостями/consumers. Неизменённый код заново не ревьюй; замеченное вне diff верни с `scope: outside`.
 - full-spec: все criteria всей spec по текущей реализации, включая ранее завершённые задачи; diff не ограничивает проверку. Будущие задачи каскада до full-spec не считай missing.
 
 Ищи missing/partial requirements, неверное/незапрошенное поведение, criteria без проверяемого implementation evidence. Finding содержит точную location (для отсутствующего кода — точка интеграции/критерий), requirement_ref, evidence и fix. Severity назначает controller; Standards не проверяй.
@@ -26,6 +26,6 @@ Controller skills/protocol/recovery/completion читай только как о
 ## Output
 
 Один финальный JSON:
-{head, verdict: APPROVE|FINDINGS|NO_SPEC|BLOCKED_CONTEXT, findings?:[{type: missing|partial|wrong,location,requirement_ref,evidence,fix}], dispositions?:[{id,state: FIXED|OPEN,evidence}], blocker?}
+{head, verdict: APPROVE|FINDINGS|NO_SPEC|BLOCKED_CONTEXT, findings?:[{type: missing|partial|wrong,location,requirement_ref,evidence,fix,scope?: outside}], dispositions?:[{id,state: FIXED|OPEN,evidence}], blocker?}
 
-Все значимые findings сохрани; пустые optional поля, пересказ diff/spec и логи опускай. При NO_SPEC/BLOCKED_CONTEXT blocker содержит недостающий источник/причину.
+Все значимые findings сохрани; пустые optional поля, пересказ diff/spec и логи опускай. При NO_SPEC/BLOCKED_CONTEXT blocker содержит недостающий источник/причину. Прогресс и промежуточные сообщения controller не отправляй: единственный результат — финальный JSON.
