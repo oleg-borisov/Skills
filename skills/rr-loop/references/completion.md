@@ -2,7 +2,7 @@
 
 Читает только rr-parallel-loop; завершение rr-loop и каскада описано в их SKILL.md.
 
-Вход: QUALITY = GREEN, writers нет. Зафиксируй parent, отличную от integration, и repo workflow. Нужна явная авторизация final merge, tracker completion/publication и удаления созданных worktrees; согласование плана её не заменяет, уже данную не повторяй. До ответа — WAITING_FOR_HUMAN/pending_action. Удаление временного LEDGER_DIR после COMPLETED уже разрешено [общим протоколом](protocol.md), отдельного согласования/архива не требует.
+Вход: QUALITY = GREEN, writers нет. Зафиксируй parent, отличную от integration, и repo workflow. Нужна явная авторизация final merge, tracker completion/publication и удаления созданных worktrees; согласование плана её не заменяет, уже данную не повторяй. До ответа — WAITING_FOR_HUMAN/pending_action. Удаление временного LEDGER_DIR после COMPLETED уже разрешено [общим протоколом](verify.md), отдельного согласования/архива не требует.
 
 ## Reconciliation
 

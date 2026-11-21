@@ -34,4 +34,4 @@ Qoder и Antigravity:
     .\link-qoder.ps1
     .\link-gemini.ps1
 
-Формат, зависимости и целевые каталоги описаны в AGENTS.md.
+Формат и зависимости описаны в AGENTS.md, генерация профилей и целевые каталоги hosts — в [docs/hosts.md](docs/hosts.md).

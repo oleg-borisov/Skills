@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # RR Parallel Loop
 
-Оставайся primary-controller. Сначала прочитай [общий протокол](../rr-loop/references/protocol.md): роли, ledger, handoff, Review/Triage, Verify и cleanup обязательны. Rolling frontier запускает готовые задачи, пока другие workers работают; общий review/gate — на собранной integration, не на каждом ticket.
+Оставайся primary-controller. Сначала прочитай [общий протокол](../rr-loop/references/protocol.md): роли, ledger и handoff обязательны. Его файлы фаз [review](../rr-loop/references/review.md) и [verify](../rr-loop/references/verify.md) читай при входе в фазу. Rolling frontier запускает готовые задачи, пока другие workers работают; общий review/gate — на собранной integration, не на каждом ticket.
 
 Один writer на worktree. Только controller последовательно интегрирует ветки. Review/verifier получают неподвижный integration HEAD. INTEGRATED означает доступность для зависимых задач, не GREEN/approval/tracker completion. Сохраняй чужие изменения; новые worktrees создавай от фиксированного SHA. Reset существующего checkout/force-cleanup запрещены.
 

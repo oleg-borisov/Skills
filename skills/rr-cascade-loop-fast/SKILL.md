@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # RR Cascade Loop Fast
 
-Оставайся primary-controller. Сначала прочитай [общий протокол](../rr-loop/references/protocol.md): роли, ledger, handoff, Review/Triage, Verify и cleanup обязательны. Ниже — отличия каскада; перенос critical в следующий Implement заменяет немедленный Revise только для промежуточных задач.
+Оставайся primary-controller. Сначала прочитай [общий протокол](../rr-loop/references/protocol.md): роли, ledger и handoff обязательны. Его файлы фаз [review](../rr-loop/references/review.md) и [verify](../rr-loop/references/verify.md) читай при входе в фазу. Ниже — отличия каскада; перенос critical в следующий Implement заменяет немедленный Revise только для промежуточных задач.
 
 ## План и запуск
 

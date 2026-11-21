@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # RR Loop
 
-Оставайся primary-controller. Сначала прочитай [общий протокол](references/protocol.md): роли, компактный ledger, Review/Triage, Verify и cleanup обязательны для этого workflow.
+Оставайся primary-controller. Сначала прочитай [общий протокол](references/protocol.md): роли, ledger и handoff обязательны для этого workflow. Его файлы фаз [review](references/review.md) и [verify](references/verify.md) читай при входе в фазу.
 
 ## Запуск
 
