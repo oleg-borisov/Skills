@@ -96,18 +96,21 @@ function Set-FileCopy {
 
 & (Join-Path $repoRoot 'sync-codex-agents.ps1')
 & (Join-Path $repoRoot 'sync-zcode-agents.ps1')
+& (Join-Path $repoRoot 'sync-devin-agents.ps1')
 & (Join-Path $repoRoot 'link-gemini.ps1')
 
 $repoSkillsPath = Join-Path $repoRoot 'skills'
 $repoMarkdownAgentsPath = Join-Path $repoRoot 'agents'
 $repoCodexAgentsPath = Join-Path $repoRoot '.codex\agents'
 $repoZCodeAgentsPath = Join-Path $repoRoot '.zcode\agents'
+$repoDevinAgentsPath = Join-Path $repoRoot '.devin\agents'
 
 $userAgentsRoot = Join-Path $userProfilePath '.agents'
 $claudeRoot = Join-Path $userProfilePath '.claude'
 $codexRoot = Join-Path $userProfilePath '.codex'
 $opencodeRoot = Join-Path $userProfilePath '.config\opencode'
 $zcodeRoot = Join-Path $userProfilePath '.zcode'
+$devinRoot = Join-Path $env:APPDATA 'devin'
 
 Set-DirectoryJunction -Path (Join-Path $repoRoot '.agents\skills') -Target $repoSkillsPath -Root $repoRoot
 Set-DirectoryJunction -Path (Join-Path $codexRoot 'agents') -Target $repoCodexAgentsPath -Root $codexRoot
@@ -133,6 +136,7 @@ foreach ($hostConfig in @(
 
 foreach ($agentName in $agentNames) {
     Set-FileCopy -Path (Join-Path $zcodeRoot "agents\$agentName.md") -Source (Join-Path $repoZCodeAgentsPath "$agentName.md") -Root $zcodeRoot
+    Set-FileCopy -Path (Join-Path $devinRoot "agents\$agentName.md") -Source (Join-Path $repoDevinAgentsPath "$agentName.md") -Root $devinRoot
 }
 
 if (Test-Path -LiteralPath $orcaAccountsRoot) {

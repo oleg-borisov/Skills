@@ -16,6 +16,7 @@
 | .codex/agents/ | Генерируемые TOML profiles только для leaf-agents. |
 | .zcode/agents/ | Генерируемые Markdown profiles только для ZCode leaf-agents. |
 | .qoder/agents/ | Генерируемые Markdown profiles только для Qoder leaf-agents. |
+| .devin/agents/ | Генерируемые Markdown profiles только для Devin leaf-agents. |
 | docs/agents/ | Инструкции интеграций, например issue-tracker.md. |
 
 Каждый `skills/rr-loop/SKILL.md`, `skills/rr-cascade-loop-fast/SKILL.md` и `skills/rr-parallel-loop/SKILL.md` задаёт порядок своего controller workflow. Общие контракты ledger, handoff, review/gate и cleanup — в `skills/rr-loop/references/protocol.md`, обязательном для primary-controller всех трёх skills. Leaf-agents работают по своим контрактам; controller protocol читают только как объект задачи на сами workflow assets. Отдельных custom controller-agents нет.
@@ -48,6 +49,16 @@
 
 Скрипты генерируют `.zcode/agents/*.md` из канонических Markdown agents. ZCode-профили вручную не редактировать: они не задают `model`, поэтому наследуют дефолтную модель ZCode.
 
+## Генерация Devin profiles
+
+    .\sync-devin-agents.ps1
+
+На macOS:
+
+    bash ./sync-devin-agents.sh
+
+Скрипты генерируют `.devin/agents/*.md` из канонических Markdown agents. Devin-профили вручную не редактировать: они не задают `model`, поэтому используют default subagent model Devin (`agent.subagent_model` или router), а не модель primary. Read-only роли (`verifier`, `standards-reviewer`, `spec-reviewer`) получают `allowed-tools: read, grep, glob, exec`; остальные — все tools. Запрет вложенных subagents у Devin действует по умолчанию (без `max-nesting`).
+
 ## Генерация Qoder profiles
 
     .\sync-qoder-agents.ps1
@@ -64,7 +75,8 @@
 - копирует flat Markdown agents и command в Claude Code/OpenCode;
 - сохраняет ~/.codex/agents как junction на .codex/agents;
 - копирует TOML leaf-agents и подключает skill во все Orca/codex-accounts/*/home;
-- копирует генерируемые ZCode Markdown profiles в `~/.zcode/agents`.
+- копирует генерируемые ZCode Markdown profiles в `~/.zcode/agents`;
+- копирует генерируемые Devin Markdown profiles в `%APPDATA%\devin\agents`. Skills Devin читает из `~/.agents/skills`.
 
 File symlinks не используются: целевые hosts их не подхватывают. Сторонние файлы в пользовательских каталогах сохраняются.
 
@@ -83,7 +95,7 @@ File symlinks не используются: целевые hosts их не по
 
 Реестр subagents Qoder инициализируется на старте сессии: после установки или правки профилей нужен новый task.
 
-## Синхронизация на macOS (OpenCode + ZCode + ~/.agents)
+## Синхронизация на macOS (OpenCode + ZCode + Devin + ~/.agents)
 
     ./link-opencode.sh
 
@@ -93,7 +105,8 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 симлинки subagent-профилей ZCode на macOS не читает, поэтому файлы копируются.
 Точно так же изменяются только известные rr-loop assets,
 существующие пользовательские файлы (например остальные skills в ~/.agents) не трогаются.
-Сфера ограничена OpenCode (~/.config/opencode), ZCode (~/.zcode) и каноническим ~/.agents.
+Devin-профили копируются в `~/.config/devin/agents`.
+Сфера ограничена OpenCode (~/.config/opencode), ZCode (~/.zcode), Devin (~/.config/devin) и каноническим ~/.agents.
 
 ## OpenCode models
 
@@ -115,9 +128,10 @@ OpenCode. Никакой скрипт модели для OpenCode не уста
 
 - Get-Item для ~/.codex/agents возвращает junction на .codex/agents этого репозитория.
 - На Windows и macOS: `~/.zcode/agents/*.md` — копии `.zcode/agents/*.md` (ZCode subagent-профили симлинки не читают).
+- Devin: `%APPDATA%\devin\agents\*.md` (Windows) или `~/.config/devin/agents/*.md` (macOS) — копии `.devin/agents/*.md`; новая сессия Devin видит шесть leaf-agents как subagent profiles.
 - В Qoder: `~/.qoder/skills/<skill>` — junction на `skills/<skill>` этого репозитория для каждого skill с `SKILL.md`; `~/.qoder/agents/*.md` — копии `.qoder/agents/*.md`. Новый task Qoder видит все шесть leaf-agents как subagent types; read-only роли не имеют Write/Edit/Agent, остальные не имеют Agent.
 - На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, commands `rr-loop.md`, `rr-cascade-loop-fast.md`, `rr-parallel-loop.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять обязательных leaf-agents и опциональный scout; reviewer/custom-agent rr-loop отсутствуют.
-- `agents/*.md`, `.zcode/agents/*.md`, `.qoder/agents/*.md` и устанавливаемые OpenCode agents не содержат `model` и наследуют дефолтную модель хоста; `opencode.json` не содержит `agents.<rr-loop>.model`.
+- `agents/*.md`, `.zcode/agents/*.md`, `.qoder/agents/*.md`, `.devin/agents/*.md` и устанавливаемые OpenCode agents не содержат `model` и наследуют дефолтную модель хоста; `opencode.json` не содержит `agents.<rr-loop>.model`.
 - Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop-fast, $rr-cascade-loop-fast, /rr-parallel-loop, $rr-parallel-loop, /tdd или $tdd.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.

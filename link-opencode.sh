@@ -6,10 +6,12 @@
 # подключаются симлинками — правки в репозитории подхватываются автоматически,
 # повторная установка не нужна. Исключение — ZCode subagent-профили:
 # ZCode на macOS не читает симлинки, поэтому ~/.zcode/agents/*.md копируются.
+# Devin-профили (~/.config/devin/agents/*.md) тоже копируются.
 # Скрипт изменяет только известные rr-loop assets и сохраняет остальные
 # пользовательские файлы.
 #
-# Сфера: OpenCode (~/.config/opencode), ZCode (~/.zcode) и канонический ~/.agents.
+# Сфера: OpenCode (~/.config/opencode), ZCode (~/.zcode), Devin (~/.config/devin)
+# и канонический ~/.agents.
 
 set -euo pipefail
 
@@ -20,11 +22,13 @@ AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser' 
 REPO_SKILLS_PATH="$REPO_ROOT/skills"
 REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"
 REPO_ZCODE_AGENTS_PATH="$REPO_ROOT/.zcode/agents"
+REPO_DEVIN_AGENTS_PATH="$REPO_ROOT/.devin/agents"
 WORKFLOWS=('rr-loop' 'rr-cascade-loop-fast' 'rr-parallel-loop')
 
 USER_AGENTS_ROOT="$HOME/.agents"
 OPENCODE_ROOT="$HOME/.config/opencode"
 ZCODE_ROOT="$HOME/.zcode"
+DEVIN_ROOT="$HOME/.config/devin"
 
 for workflow in "${WORKFLOWS[@]}"; do
     if [[ ! -f "$REPO_ROOT/command/$workflow.md" ]]; then
@@ -34,6 +38,7 @@ for workflow in "${WORKFLOWS[@]}"; do
 done
 
 bash "$REPO_ROOT/sync-zcode-agents.sh"
+bash "$REPO_ROOT/sync-devin-agents.sh"
 
 # set_symlink <path> <target>
 #  - Создаёт родительский каталог при необходимости.
@@ -121,6 +126,7 @@ done
 for name in "${AGENTS[@]}"; do
     set_symlink "$OPENCODE_ROOT/agents/$name.md" "$REPO_MARKDOWN_AGENTS_PATH/$name.md"
     copy_file "$ZCODE_ROOT/agents/$name.md" "$REPO_ZCODE_AGENTS_PATH/$name.md"
+    copy_file "$DEVIN_ROOT/agents/$name.md" "$REPO_DEVIN_AGENTS_PATH/$name.md"
 done
 
 for workflow in "${WORKFLOWS[@]}"; do
