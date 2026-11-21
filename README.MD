@@ -1,10 +1,10 @@
 # Skills
 
-Переиспользуемые agent assets для Claude Code, OpenCode и Codex:
+Переиспользуемые agent assets для Claude Code, OpenCode, Codex, ZCode, Qoder, Devin и Antigravity:
 
 - primary workflows /rr-loop, $rr-loop, /rr-cascade-loop-fast, $rr-cascade-loop-fast и /rr-parallel-loop, $rr-parallel-loop;
-- leaf-agents implementer, verifier, standards-reviewer, spec-reviewer, reviser;
-- skills rr-loop, rr-cascade-loop-fast и rr-parallel-loop как source of truth своих controllers, локальный TDD skill в `skills/tdd/` и Markdown leaf-agents как source of truth для генерируемых Codex TOML profiles.
+- leaf-agents implementer, verifier, standards-reviewer, spec-reviewer, reviser и опциональный scout;
+- skills rr-loop, rr-cascade-loop-fast и rr-parallel-loop как source of truth своих controllers, локальный TDD skill в `skills/tdd/`, вспомогательный `skills/wait-what-ru/` и Markdown leaf-agents как source of truth для генерируемых профилей хостов.
 
 `rr-parallel-loop` запускает готовые задачи графа в отдельных worktree и собирает
 integration-ветку с draft PR, когда этого требует tracker или пользователь.
@@ -21,8 +21,13 @@ gate. В rr-loop это итог задачи, в cascade/parallel — всег�
 
     .\link-codex.ps1
 
-На macOS для OpenCode и `~/.agents`:
+На macOS для OpenCode, ZCode, Devin и `~/.agents`:
 
     ./link-opencode.sh
+
+Qoder и Antigravity:
+
+    .\link-qoder.ps1
+    .\link-gemini.ps1
 
 Формат, зависимости и целевые каталоги описаны в AGENTS.md.

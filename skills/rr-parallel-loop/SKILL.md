@@ -1,6 +1,7 @@
 ---
 name: rr-parallel-loop
 description: Реализовать готовый граф задач в отдельных worktree, собрать integration и пройти review → final gate → merge.
+disable-model-invocation: true
 ---
 
 # RR Parallel Loop

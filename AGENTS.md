@@ -13,6 +13,7 @@
 | skills/rr-cascade-loop-fast/ | Каскад с исправлением findings в Implement следующей задачи. |
 | skills/rr-parallel-loop/ | Rolling frontier графа задач в отдельных worktree, общий gate/review и recovery. |
 | skills/tdd/ | Канонический test-first workflow с независимым oracle и проверкой дефектов теста. |
+| skills/wait-what-ru/ | User-invoked skill: переформулировать последний ответ простым русским языком. |
 | .codex/agents/ | Генерируемые TOML profiles только для leaf-agents. |
 | .zcode/agents/ | Генерируемые Markdown profiles только для ZCode leaf-agents. |
 | .qoder/agents/ | Генерируемые Markdown profiles только для Qoder leaf-agents. |
@@ -94,6 +95,12 @@ File symlinks не используются: целевые hosts их не по
 Профили копируются поимённо, а не junction-ом на весь `~/.qoder/agents`, чтобы сохранить сторонние определения агентов пользователя. Slash-command adapters не устанавливаются: в Qoder skills вызываются напрямую через `/<name>`, поэтому `~/.qoder/commands` скрипт не трогает.
 
 Реестр subagents Qoder инициализируется на старте сессии: после установки или правки профилей нужен новый task.
+
+## Синхронизация Antigravity
+
+    .\link-gemini.ps1
+
+Скрипт вызывает `sync-gemini-agents.ps1`: тот собирает plugin `serenity-agents` в игнорируемом `.gemini/plugins/` (agents, копии трёх rr skills с references, rules). Затем plugin зеркалируется в `~/.gemini/config/plugins/serenity-agents` копированием: plugin discovery Antigravity не читает junction.
 
 ## Синхронизация на macOS (OpenCode + ZCode + Devin + ~/.agents)
 

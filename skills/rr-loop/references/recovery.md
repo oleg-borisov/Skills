@@ -1,6 +1,6 @@
-# Recovery rr-parallel-loop
+# Recovery rr workflows
 
-Читай только при resume/неизвестном исходе/сбое worker/передаче dirty worktree. Общий snapshot ledger описан в [протоколе](protocol.md).
+Claim, integration и task worktrees относятся к rr-parallel-loop. Читай только при resume/неизвестном исходе/сбое worker/передаче dirty worktree. Общий snapshot ledger описан в [протоколе](protocol.md).
 
 1. Существующий нетерминальный ledger/claim → resume либо явный reset; без решения не удаляй и не dispatch дубликат. Reset не разрешает потерю незакоммиченного кода. Ownership claim передавай по OS-lock/owner/version правилам SKILL.md.
 2. Прочитай актуальный state и нужные refs; сверяй identity, sources, BASE/integration ancestry, branch/cwd/HEAD задач, liveness, PR/tracker state и pending intents. Изменение требований/graph требует согласования, необъяснимый drift → HUMAN_ATTENTION. Notes сверяет worker. Старый ledger восстанавливай по его фактическим полям без повторения подтверждённых действий; миграцию истории не строй.
