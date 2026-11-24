@@ -1,6 +1,6 @@
 # Генерация профилей и установка на hosts
 
-Канон — `agents/*.md` и `skills/`; всё ниже описывает, как он попадает в Codex, ZCode, Devin, Qoder, Antigravity, Claude Code и OpenCode.
+Канон — `agents/*.md` и `skills/`; всё ниже описывает, как он попадает в Codex, ZCode, Devin, Qoder, Antigravity, Mistral Vibe, Claude Code и OpenCode.
 
 ## Генерация Codex profiles
 
@@ -38,6 +38,14 @@
 
 Скрипт генерирует `.qoder/agents/*.md` из канонических Markdown agents. Qoder-профили вручную не редактировать: они не задают `model`, поэтому наследуют модель текущей сессии Qoder. Read-only роли (`verifier`, `standards-reviewer`, `spec-reviewer`) получают `tools: Read, Grep, Glob, Bash`; остальные — `disallowedTools: Agent`, чтобы leaf не запускал других агентов. Температура берётся из канонического frontmatter.
 
+## Генерация Vibe profiles
+
+    .\sync-vibe-agents.ps1
+
+Скрипт генерирует `.vibe/agents/*.toml` из канонических Markdown agents — это project-scope профили Mistral Vibe: сессия Vibe в доверенном клоне репозитория видит всех leaf-агентов без установки. Вручную не редактировать.
+
+Профили не задают `active_model`, поэтому каждый субагент наследует модель сессии; `temperature` канонического frontmatter не переносится — у agent-файла Vibe нет per-agent температуры. Все профили — `agent_type = "subagent"` с запретом вложенного запуска (`disabled_tools = ["agents_spawn"]`); read-only роли (`verifier`, `standards-reviewer`, `spec-reviewer`) дополнительно получают `[tools.write_file]`/`[tools.edit]` с `permission = "never"` — bash остаётся у сессии, verifier запускает checks. Новая сессия подхватывает профили после перезапуска или `/reload`.
+
 ## Синхронизация окружений
 
     .\link-codex.ps1
@@ -67,6 +75,17 @@ File symlinks не используются: целевые hosts их не по
 Профили копируются поимённо, а не junction-ом на весь `~/.qoder/agents`, чтобы сохранить сторонние определения агентов пользователя. Slash-command adapters не устанавливаются: в Qoder skills вызываются напрямую через `/<name>`, поэтому `~/.qoder/commands` скрипт не трогает.
 
 Реестр subagents Qoder инициализируется на старте сессии: после установки или правки профилей нужен новый task.
+
+## Синхронизация Vibe
+
+    .\link-vibe.ps1
+
+Скрипт сначала генерирует Vibe profiles, затем:
+
+- подключает junction-ами все каталоги `skills/` с `SKILL.md` в `~/.vibe/skills`;
+- копирует генерируемые TOML profiles в `~/.vibe/agents`.
+
+Каталог установки берётся из `VIBE_HOME`, по умолчанию `~/.vibe`. Копия skill в `~/.vibe/skills` заменяется junction-ом только при совпадении содержимого с репозиторием (разница CRLF/LF допустима); иначе скрипт останавливается и сохраняет пользовательские файлы. Профили копируются поимённо, чтобы сохранить сторонние определения агентов пользователя. Правки профилей подхватываются новой сессией Vibe или через `/reload`.
 
 ## Синхронизация Antigravity
 
@@ -109,9 +128,10 @@ OpenCode. Никакой скрипт модели для OpenCode не уста
 - На Windows и macOS: `~/.zcode/agents/*.md` — копии `.zcode/agents/*.md` (ZCode subagent-профили симлинки не читают).
 - Devin: `%APPDATA%\devin\agents\*.md` (Windows) или `~/.config/devin/agents/*.md` (macOS) — копии `.devin/agents/*.md`; новая сессия Devin видит шесть leaf-agents как subagent profiles.
 - В Qoder: `~/.qoder/skills/<skill>` — junction на `skills/<skill>` этого репозитория для каждого skill с `SKILL.md`; `~/.qoder/agents/*.md` — копии `.qoder/agents/*.md`. Новый task Qoder видит все шесть leaf-agents как subagent types; read-only роли не имеют Write/Edit/Agent, остальные не имеют Agent.
+- В Vibe: `~/.vibe/skills/<skill>` — junction на `skills/<skill>` этого репозитория для каждого skill с `SKILL.md`; `~/.vibe/agents/*.toml` — копии `.vibe/agents/*.toml`. Новая сессия Vibe видит шесть leaf-агентов как spawnable subagents; read-only роли имеют `never` на write_file/edit, все профили не запускают субагентов.
 - На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, commands `rr-loop.md`, `rr-cascade-loop-fast.md`, `rr-parallel-loop.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять обязательных leaf-agents и опциональный scout; reviewer/custom-agent rr-loop отсутствуют.
-- `agents/*.md`, `.zcode/agents/*.md`, `.qoder/agents/*.md`, `.devin/agents/*.md` и устанавливаемые OpenCode agents не содержат `model` и наследуют дефолтную модель хоста; `opencode.json` не содержит `agents.<rr-loop>.model`.
+- `agents/*.md`, `.zcode/agents/*.md`, `.qoder/agents/*.md`, `.devin/agents/*.md`, `.vibe/agents/*.toml` и устанавливаемые OpenCode agents не содержат `model` и наследуют дефолтную модель хоста; `opencode.json` не содержит `agents.<rr-loop>.model`.
 - Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop-fast, $rr-cascade-loop-fast, /rr-parallel-loop, $rr-parallel-loop, /tdd или $tdd.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.
 - У трёх rr skills и `wait-what-ru` есть `agents/openai.yaml` с `policy.allow_implicit_invocation: false`: Codex не читает `disable-model-invocation` и без этого файла показывает skill модели.

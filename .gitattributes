@@ -3,5 +3,6 @@
 .zcode/agents/** text eol=lf
 .qoder/agents/** text eol=lf
 .devin/agents/** text eol=lf
+.vibe/agents/** text eol=lf
 *.sh text eol=lf
 *.py text eol=lf

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Репозиторий содержит переиспользуемые agent assets для Claude Code, OpenCode, ZCode, Codex, Qoder, Devin и Antigravity.
+Репозиторий содержит переиспользуемые agent assets для Claude Code, OpenCode, ZCode, Codex, Qoder, Devin, Antigravity и Mistral Vibe.
 
 ## Структура
 
@@ -11,7 +11,7 @@
 | skills/rr-cascade-loop-fast/, skills/rr-parallel-loop/ | Каскад и параллельный граф задач; используют протокол и CLI rr-loop. |
 | skills/tdd/, skills/wait-what-ru/ | Локальный TDD skill и вспомогательный user-invoked skill. |
 | command/ | Slash-command adapters трёх rr skills для Claude Code и OpenCode. |
-| .codex/, .zcode/, .qoder/, .devin/ agents | Генерируемые профили leaf-agents. Вручную не редактировать. |
+| .codex/, .zcode/, .qoder/, .devin/, .vibe/ agents | Генерируемые профили leaf-agents. Вручную не редактировать. |
 | tests/ | unittest для `rr.py`. |
 | docs/adr/, docs/validation/ | Решения и прогоны контрактов; [docs/hosts.md](docs/hosts.md) — генерация профилей, установка на hosts и её проверка. |
 
@@ -26,7 +26,7 @@
 
 ## После правок
 
-- `agents/*.md` → перегенерируй профили: `.\sync-codex-agents.ps1`, `.\sync-zcode-agents.ps1`, `.\sync-qoder-agents.ps1`, `.\sync-devin-agents.ps1`. Канонические agents и Markdown-профили не задают `model`; модели Codex — в `$profiles` генератора.
+- `agents/*.md` → перегенерируй профили: `.\sync-codex-agents.ps1`, `.\sync-zcode-agents.ps1`, `.\sync-qoder-agents.ps1`, `.\sync-devin-agents.ps1`, `.\sync-vibe-agents.ps1`. Канонические agents и Markdown-профили не задают `model`; модели Codex — в `$profiles` генератора, Vibe-профили наследуют модель сессии.
 - `skills/rr-loop/scripts/rr.py` → `python -m unittest discover -s tests`.
 - Новый user-invoked skill (`disable-model-invocation: true`) → добавь `agents/openai.yaml` с `policy.allow_implicit_invocation: false`: Codex первое поле не читает.
 - Установка на hosts — `link-*` скрипты по [docs/hosts.md](docs/hosts.md); skills подключены ссылками, профили agents копируются.
