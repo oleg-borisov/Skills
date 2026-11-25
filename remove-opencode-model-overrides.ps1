@@ -61,7 +61,7 @@ else {
 }
 
 $parent = Split-Path -Parent $ConfigPath
-if ($PSCmdlet.ShouldProcess($ConfigPath, 'Удалить model-overrides rr-loop агентов')) {
+if ($PSCmdlet.ShouldProcess($ConfigPath, 'Удалить model-overrides spec-delivery агентов')) {
     if (-not (Test-Path -LiteralPath $parent)) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }

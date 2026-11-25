@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Механика ledger rr workflows: атомарный state, handoffs, findings, gate, интеграция, сверка Git, cleanup.
+"""Механика ledger запусков: атомарный state, handoffs, findings, gate, интеграция, сверка Git, cleanup.
 
 Вызывает только primary-controller. Вывод — одна компактная строка JSON; ошибка — строка в stderr и код 1.
 """

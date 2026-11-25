@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Синхронизирует rr-loop assets с macOS-хостами через symlink (аналог junction).
+# Синхронизирует spec-delivery assets с macOS-хостами через symlink (аналог junction).
 #
 # Отличие от link-codex.ps1: на macOS skills, OpenCode agents и command
 # подключаются симлинками — правки в репозитории подхватываются автоматически,
 # повторная установка не нужна. Исключение — ZCode subagent-профили:
 # ZCode на macOS не читает симлинки, поэтому ~/.zcode/agents/*.md копируются.
 # Devin-профили (~/.config/devin/agents/*.md) тоже копируются.
-# Скрипт изменяет только известные rr-loop assets и сохраняет остальные
+# Скрипт изменяет только известные spec-delivery assets и сохраняет остальные
 # пользовательские файлы.
 #
 # Сфера: OpenCode (~/.config/opencode), ZCode (~/.zcode), Devin (~/.config/devin)
@@ -23,7 +23,7 @@ REPO_SKILLS_PATH="$REPO_ROOT/skills"
 REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"
 REPO_ZCODE_AGENTS_PATH="$REPO_ROOT/.zcode/agents"
 REPO_DEVIN_AGENTS_PATH="$REPO_ROOT/.devin/agents"
-WORKFLOWS=('rr-loop')
+WORKFLOWS=('spec-delivery')
 
 USER_AGENTS_ROOT="$HOME/.agents"
 OPENCODE_ROOT="$HOME/.config/opencode"

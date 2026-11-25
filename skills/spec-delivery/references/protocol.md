@@ -1,4 +1,4 @@
-# Протокол rr-loop
+# Протокол spec-delivery
 
 Обязателен для primary-controller. Порядок фаз — в [SKILL.md](../SKILL.md).
 
@@ -28,7 +28,7 @@ Tracker: API/статусы только из `docs/agents/issue-tracker.md`. Д
 
 ## Snapshot ledger
 
-State, handoffs и findings меняет только controller и только через CLI: RR = `python3 <каталог skill rr-loop>/scripts/rr.py` (Windows: `python`). Нет Python 3.9+ → BLOCKED_UNSUPPORTED_HOST. Вывод — одна строка JSON; код 1 — отказ: причина в stderr либо `problems`/`stop` в JSON. state.json целиком не читай и вручную не правь. JSON worker передавай в stdin; в Windows PowerShell 5.1 — через `--file`: pipe портит не-ASCII.
+State, handoffs и findings меняет только controller и только через CLI: RR = `python3 <каталог skill spec-delivery>/scripts/rr.py` (Windows: `python`). Нет Python 3.9+ → BLOCKED_UNSUPPORTED_HOST. Вывод — одна строка JSON; код 1 — отказ: причина в stderr либо `problems`/`stop` в JSON. state.json целиком не читай и вручную не правь. JSON worker передавай в stdin; в Windows PowerShell 5.1 — через `--file`: pipe портит не-ASCII.
 
 - `RR init --ledger <LEDGER_DIR> [--cwd <cwd>] [--target <ветка>] task=<ID> spec=<locator> [path=json…]` — новый запуск: base = head = HEAD, status RUNNING, цель в `merge_target`, `.scratch/` в Git exclude. Отказ при существующем ledger либо незавершённом запуске той же task/spec в любом worktree репозитория. Locator spec — repo-relative path либо tracker URL.
 - `RR get --ledger <dir> [path…]` и `RR set --ledger <dir> path=json… [--delete path]` — нужные поля и атомарная запись; path через точку. `quality` (UNVERIFIED|GREEN) вычисляет CLI для текущего head; status COMPLETED требует GREEN; `head=<rev>` записывай после rebase/merge вне worker.

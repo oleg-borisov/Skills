@@ -20,7 +20,7 @@ $pluginManifest = [ordered]@{
     name = "serenity-agents"
     displayName = "Serenity Workflow Agents"
     version = "1.0.0"
-    description = "Комплект специализированных субагентов для цикла разработки rr-loop (implementer, verifier, standards-reviewer, spec-reviewer, reviser, scout)."
+    description = "Комплект специализированных субагентов для цикла разработки spec-delivery (implementer, verifier, standards-reviewer, spec-reviewer, reviser, scout)."
     suggestedPrompts = @(
         "Run implementer to build work from spec",
         "Run verifier gate for test suite",
@@ -38,11 +38,11 @@ $readmeContent = @"
 Плагин субагентов для Antigravity, сгенерированный из канонических спецификаций в `agents/`.
 
 ## Содержимое
-- `implementer`: Реализует spec в одной rr-loop фазе, выполняет targeted checks и коммитит.
+- `implementer`: Реализует spec в одной spec-delivery фазе, выполняет targeted checks и коммитит.
 - `verifier`: Read-only full-suite gate для нового HEAD, возвращающий failure inventory.
 - `standards-reviewer`: Read-only Standards-axis review заданного diff по repo standards.
 - `spec-reviewer`: Read-only Spec-axis review заданного diff против originating spec.
-- `reviser`: Исправляет заданные rr-loop findings, выполняет targeted checks и коммитит правки.
+- `reviser`: Исправляет заданные spec-delivery findings, выполняет targeted checks и коммитит правки.
 - `scout`: Опциональный exploration-агент: однократно исследует код по вопросам контроллера и пишет заметки в notes_dir.
 "@
 
@@ -90,20 +90,20 @@ foreach ($agentName in $agentNames) {
 # 4. Синхронизация и адаптация навыков для Antigravity
 $skillsDir = Join-Path $repoRoot 'skills'
 $outputSkillsDir = Join-Path $pluginDir 'skills'
-$skillNames = @('rr-loop')
+$skillNames = @('spec-delivery')
 
 foreach ($skillName in $skillNames) {
     $sourceSkillDir = Join-Path $skillsDir $skillName
     if (-not (Test-Path -LiteralPath (Join-Path $sourceSkillDir 'SKILL.md'))) {
         throw "Отсутствует канонический skill: $sourceSkillDir"
     }
-    # References и scripts — исполняемая часть контракта, включая общий протокол и CLI rr-loop.
+    # References и scripts — исполняемая часть контракта, включая общий протокол и CLI spec-delivery.
     foreach ($sourceFile in Get-ChildItem -LiteralPath $sourceSkillDir -File -Recurse | Where-Object FullName -NotMatch '__pycache__') {
         $relativePath = [IO.Path]::GetRelativePath($sourceSkillDir, $sourceFile.FullName)
         $targetPath = Join-Path (Join-Path $outputSkillsDir $skillName) $relativePath
         New-Item -ItemType Directory -Path (Split-Path -Parent $targetPath) -Force | Out-Null
         $content = [IO.File]::ReadAllText($sourceFile.FullName)
-        if ($skillName -eq 'rr-loop' -and $relativePath.Replace('\', '/') -eq 'references/protocol.md') {
+        if ($skillName -eq 'spec-delivery' -and $relativePath.Replace('\', '/') -eq 'references/protocol.md') {
             $content = $content.Replace(
                 'Нет named role/subagents → BLOCKED_UNSUPPORTED_HOST, без подмены роли.',
                 'В Antigravity запускай leaf-agents через TypeName: `self`, Role = имя роли (`Implementer`, `Verifier`, `Spec Reviewer`, `Standards Reviewer`, `Reviser`, `Scout`) с контрактом роли в системной инструкции. Нет этого механизма → BLOCKED_UNSUPPORTED_HOST.')
@@ -118,9 +118,9 @@ if (-not (Test-Path -LiteralPath $rulesDir)) {
     New-Item -ItemType Directory -Path $rulesDir -Force | Out-Null
 }
 $rulesContent = @"
-# Antigravity Subagent Rules for RR Workflows
+# Antigravity Subagent Rules for spec-delivery
 
-При выполнении \`rr-loop\` в Antigravity все leaf-agents (\`implementer\`, \`verifier\`, \`standards-reviewer\`, \`spec-reviewer\`, \`reviser\`, \`scout\`) вызываются через инструмент \`invoke_subagent\` с \`TypeName: "self"\`, Role = имя роли (\`Implementer\`, \`Verifier\`, \`Standards Reviewer\`, \`Spec Reviewer\`, \`Reviser\`, \`Scout\`), а контракт и инструкции роли передаются в системной инструкции / prompt. Это гарантирует наследование необходимых write и execution инструментов от родителя.
+При выполнении \`spec-delivery\` в Antigravity все leaf-agents (\`implementer\`, \`verifier\`, \`standards-reviewer\`, \`spec-reviewer\`, \`reviser\`, \`scout\`) вызываются через инструмент \`invoke_subagent\` с \`TypeName: "self"\`, Role = имя роли (\`Implementer\`, \`Verifier\`, \`Standards Reviewer\`, \`Spec Reviewer\`, \`Reviser\`, \`Scout\`), а контракт и инструкции роли передаются в системной инструкции / prompt. Это гарантирует наследование необходимых write и execution инструментов от родителя.
 "@
 Set-Content -LiteralPath (Join-Path $rulesDir 'AGENTS.md') -Value $rulesContent -Encoding utf8NoBOM
 

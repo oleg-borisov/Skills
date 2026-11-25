@@ -1,6 +1,6 @@
 ---
 name: reviser
-description: Исправляет заданные rr-loop findings, выполняет targeted checks и быстрый ярус и коммитит правки.
+description: Исправляет заданные spec-delivery findings, выполняет targeted checks и быстрый ярус и коммитит правки.
 temperature: 0.2
 disallowedTools:
   - Agent

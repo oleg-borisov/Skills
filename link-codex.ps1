@@ -2,12 +2,12 @@
 
 <#
 .SYNOPSIS
-    Генерирует Codex profiles и синхронизирует rr-loop assets с локальными agent hosts.
+    Генерирует Codex profiles и синхронизирует spec-delivery assets с локальными agent hosts.
 
 .DESCRIPTION
     Directory skills подключаются junction-ами. Flat agent/command files копируются,
     потому что file symlinks не подхватываются используемыми hosts. Скрипт изменяет
-    только известные rr-loop assets и сохраняет остальные пользовательские файлы.
+    только известные spec-delivery assets и сохраняет остальные пользовательские файлы.
 #>
 
 [CmdletBinding()]
@@ -19,7 +19,7 @@ $repoRoot = $PSScriptRoot
 $userProfilePath = [Environment]::GetFolderPath('UserProfile')
 $orcaAccountsRoot = Join-Path $env:APPDATA 'orca\codex-accounts'
 $agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser', 'scout')
-$workflowNames = @('rr-loop')
+$workflowNames = @('spec-delivery')
 
 function Assert-PathWithin {
     param(

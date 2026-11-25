@@ -9,7 +9,7 @@
 Скрипт генерирует .codex/agents/*.toml из канонических Markdown agents. TOML-файлы вручную не редактировать.
 
 Модели и reasoning effort leaf-agents задаются в `$profiles` этого скрипта.
-Для primary-контроллера rr-loop рекомендуется `gpt-6.1-sol` / `medium`, выбираемые
+Для primary-контроллера spec-delivery рекомендуется `gpt-6.1-sol` / `medium`, выбираемые
 в текущем диалоге Codex; генератор и скрипт распространения primary не настраивают.
 
 ## Генерация ZCode profiles
@@ -52,7 +52,7 @@
 
 Скрипт сначала генерирует Codex profiles, затем:
 
-- подключает directory skill `rr-loop` junction-ами;
+- подключает directory skill `spec-delivery` junction-ами;
 - копирует flat Markdown agents и command в Claude Code/OpenCode;
 - сохраняет ~/.codex/agents как junction на .codex/agents;
 - копирует TOML leaf-agents и подключает skill во все Orca/codex-accounts/*/home;
@@ -91,7 +91,7 @@ File symlinks не используются: целевые hosts их не по
 
     .\link-gemini.ps1
 
-Скрипт вызывает `sync-gemini-agents.ps1`: тот собирает plugin `serenity-agents` в игнорируемом `.gemini/plugins/` (agents, копии трёх rr skills с references, rules). Затем plugin зеркалируется в `~/.gemini/config/plugins/serenity-agents` копированием: plugin discovery Antigravity не читает junction.
+Скрипт вызывает `sync-gemini-agents.ps1`: тот собирает plugin `serenity-agents` в игнорируемом `.gemini/plugins/` (agents, skills/spec-delivery, rules). Затем plugin зеркалируется в `~/.gemini/config/plugins/serenity-agents` копированием: plugin discovery Antigravity не читает junction.
 
 ## Синхронизация на macOS (OpenCode + ZCode + Devin + ~/.agents)
 
@@ -101,7 +101,7 @@ macOS-аналог junction — это symlink; на macOS hosts коррект�
 поэтому skills, OpenCode agents и command подключаются ссылками и повторная установка
 после правок не нужна. Исключение — ZCode subagents в `~/.zcode/agents`:
 симлинки subagent-профилей ZCode на macOS не читает, поэтому файлы копируются.
-Точно так же изменяются только известные rr-loop assets,
+Точно так же изменяются только известные spec-delivery assets,
 существующие пользовательские файлы (например остальные skills в ~/.agents) не трогаются.
 Devin-профили копируются в `~/.config/devin/agents`.
 Сфера ограничена OpenCode (~/.config/opencode), ZCode (~/.zcode), Devin (~/.config/devin) и каноническим ~/.agents.
@@ -115,7 +115,7 @@ OpenCode. Никакой скрипт модели для OpenCode не уста
 
     pwsh -NoProfile -ExecutionPolicy Bypass -File .\remove-opencode-model-overrides.ps1
 
-Скрипт удаляет только `agents.<name>.model` известных rr-loop агентов
+Скрипт удаляет только `agents.<name>.model` известных spec-delivery агентов
 (`implementer`, `verifier`, `standards-reviewer`, `spec-reviewer`, `reviser`, `scout`),
 пустые секции зачищает, остальной конфиг не трогает
 (перед записью делает `.bak.*`).
@@ -129,13 +129,13 @@ OpenCode. Никакой скрипт модели для OpenCode не уста
 - Devin: `%APPDATA%\devin\agents\*.md` (Windows) или `~/.config/devin/agents/*.md` (macOS) — копии `.devin/agents/*.md`; новая сессия Devin видит шесть leaf-agents как subagent profiles.
 - В Qoder: `~/.qoder/skills/<skill>` — junction на `skills/<skill>` этого репозитория для каждого skill с `SKILL.md`; `~/.qoder/agents/*.md` — копии `.qoder/agents/*.md`. Новый task Qoder видит все шесть leaf-agents как subagent types; read-only роли не имеют Write/Edit/Agent, остальные не имеют Agent.
 - В Vibe: `~/.vibe/skills/<skill>` — junction на `skills/<skill>` этого репозитория для каждого skill с `SKILL.md`; `~/.vibe/agents/*.toml` — копии `.vibe/agents/*.toml`. Новая сессия Vibe видит шесть leaf-агентов как spawnable subagents; read-only роли имеют `never` на write_file/edit, все профили не запускают субагентов.
-- На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, `rr-loop.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
-- В agent-каталогах присутствуют пять обязательных leaf-agents и опциональный scout; reviewer/custom-agent rr-loop отсутствуют.
-- `agents/*.md`, `.zcode/agents/*.md`, `.qoder/agents/*.md`, `.devin/agents/*.md`, `.vibe/agents/*.toml` и устанавливаемые OpenCode agents не содержат `model` и наследуют дефолтную модель хоста; `opencode.json` не содержит `agents.<rr-loop>.model`.
-- Skills вызываются в primary-контексте через `/rr-loop`, `$rr-loop`, `/tdd` или `$tdd`.
+- На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, `spec-delivery.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
+- В agent-каталогах присутствуют пять обязательных leaf-agents и опциональный scout; reviewer/custom-agent отсутствуют.
+- `agents/*.md`, `.zcode/agents/*.md`, `.qoder/agents/*.md`, `.devin/agents/*.md`, `.vibe/agents/*.toml` и устанавливаемые OpenCode agents не содержат `model` и наследуют дефолтную модель хоста; `opencode.json` не содержит `agents.<name>.model`.
+- Skills вызываются в primary-контексте через `/spec-delivery`, `$spec-delivery`, `/tdd` или `$tdd`.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.
-- У `rr-loop` и `wait-what-ru` есть `agents/openai.yaml` с `policy.allow_implicit_invocation: false`: Codex не читает `disable-model-invocation` и без этого файла показывает skill модели.
+- У `spec-delivery` и `wait-what-ru` есть `agents/openai.yaml` с `policy.allow_implicit_invocation: false`: Codex не читает `disable-model-invocation` и без этого файла показывает skill модели.
 
 При обновлении старой установки удали оставшиеся ссылки и установленные копии
-`rr-parallel-loop` и `rr-cascade-loop-fast` из каталогов skills и commands.
+`rr-loop`, `rr-parallel-loop` и `rr-cascade-loop-fast` из каталогов skills и commands. Для Antigravity также очисти прежние копии в сгенерированном `.gemini/plugins/serenity-agents/skills/` перед синхронизацией.
 Журналы запусков находятся в checkout продукта и нужны для resume.

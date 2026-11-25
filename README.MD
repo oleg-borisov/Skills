@@ -2,11 +2,11 @@
 
 Переиспользуемые agent assets для Claude Code, OpenCode, Codex, ZCode, Qoder, Devin и Antigravity:
 
-- единый primary workflow `/rr-loop` или `$rr-loop`;
+- единый primary workflow `/spec-delivery` или `$spec-delivery`;
 - leaf-agents implementer, verifier, standards-reviewer, spec-reviewer, reviser и опциональный scout;
-- `skills/rr-loop/` как контракт контроллера, локальный TDD skill в `skills/tdd/`, вспомогательный `skills/wait-what-ru/` и Markdown-контракты leaf-agents для генерации профилей хостов.
+- `skills/spec-delivery/` как контракт контроллера, локальный TDD skill в `skills/tdd/`, вспомогательный `skills/wait-what-ru/` и Markdown-контракты leaf-agents для генерации профилей хостов.
 
-`rr-loop` реализует одну спецификацию в текущем checkout. Готовые задачи графа
+`spec-delivery` реализует одну спецификацию в текущем checkout. Готовые задачи графа
 выполняются в отдельных worktree и собираются на integration-ветке. Параллелизм
 ограничен зависимостями, областями записи и ёмкостью хоста.
 [Решение об объединении](docs/adr/0009-unified-rr-loop.md).

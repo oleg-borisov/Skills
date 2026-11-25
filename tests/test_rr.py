@@ -8,7 +8,7 @@ import tempfile
 import threading
 import unittest
 
-SCRIPTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills", "rr-loop", "scripts")
+SCRIPTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills", "spec-delivery", "scripts")
 sys.path.insert(0, SCRIPTS)
 import rr  # noqa: E402
 
@@ -41,7 +41,7 @@ class RrTest(unittest.TestCase):
         self.git("config", "user.name", "t")
         self.git("config", "user.email", "t@t")
         self.commit("a.txt", "one")
-        self.ledger = os.path.join(self.repo, ".scratch", "rr-loop", "task-1")
+        self.ledger = os.path.join(self.repo, ".scratch", "spec-delivery", "task-1")
         code, result = run("init", "--ledger", self.ledger, "task=T-1")
         self.assertEqual(code, 0, result)
         self.base = result["base"]
@@ -94,8 +94,8 @@ class RrTest(unittest.TestCase):
 
     def test_init_creates_running_unverified_state_and_ignores_scratch(self):
         state = self.state()
-        self.assertEqual((state["status"], state["task"], state["base"], state["head"]),
-                         ("RUNNING", "T-1", self.base, self.base))
+        self.assertEqual((state["workflow"], state["status"], state["task"], state["base"], state["head"]),
+                         ("spec-delivery", "RUNNING", "T-1", self.base, self.base))
         self.assertNotIn("quality", state)
         self.assertEqual(self.quality(), "UNVERIFIED")
         self.assertEqual(self.git("status", "--porcelain"), "")
@@ -106,12 +106,12 @@ class RrTest(unittest.TestCase):
         self.assertIn("уже существует", error)
 
     def test_ledger_must_be_run_directory_under_scratch(self):
-        for path in (self.repo, os.path.join(self.repo, ".scratch"), os.path.join(self.repo, ".scratch", "rr-loop")):
+        for path in (self.repo, os.path.join(self.repo, ".scratch"), os.path.join(self.repo, ".scratch", "spec-delivery")):
             code, _ = run("get", "--ledger", path)
             self.assertEqual(code, 1, path)
 
     def test_init_explains_run_name_for_branch_with_slash(self):
-        code, error = run("init", "--ledger", os.path.join(self.repo, ".scratch", "rr-loop", "feature", "T-2"))
+        code, error = run("init", "--ledger", os.path.join(self.repo, ".scratch", "spec-delivery", "feature", "T-2"))
         self.assertEqual(code, 1)
         self.assertIn("замени", error)
 
@@ -124,12 +124,12 @@ class RrTest(unittest.TestCase):
         self.commit("a.txt", "one", cwd=other)
         with open(os.path.join(other, ".git", "info", "exclude"), "w", newline="") as fh:
             fh.write("*.tmp")
-        code, result = run("init", "--ledger", os.path.join(other, ".scratch", "rr-loop", "t"))
+        code, result = run("init", "--ledger", os.path.join(other, ".scratch", "spec-delivery", "t"))
         self.assertEqual(code, 0, result)
         self.assertEqual(self.git("status", "--porcelain", cwd=other), "")
 
     def test_init_records_merge_target_and_default_consent(self):
-        ledger = os.path.join(self.repo, ".scratch", "rr-loop", "task-2")
+        ledger = os.path.join(self.repo, ".scratch", "spec-delivery", "task-2")
         code, result = run("init", "--ledger", ledger, "--target", "develop", "task=T-2", "consent.merge=false")
         self.assertEqual(code, 0, result)
         with open(os.path.join(ledger, "state.json"), encoding="utf-8") as fh:
@@ -137,13 +137,13 @@ class RrTest(unittest.TestCase):
         self.assertEqual(state["merge_target"], "develop")
         self.assertEqual(state["consent"], {"merge": False, "tracker": True, "worktrees": True})
 
-    def test_init_refuses_live_run_of_same_task_in_another_worktree(self):
+    def test_init_refuses_live_run_of_same_task_in_another_worktree_across_legacy_workflow(self):
         tree = os.path.join(os.path.dirname(self.repo), "tree")
         self.git("worktree", "add", "-q", "-b", "other", tree, "HEAD")
         ledger = os.path.join(tree, ".scratch", "rr-loop", "other")
         code, error = run("init", "--ledger", ledger, "task=T-1")
         self.assertEqual(code, 1)
-        self.assertIn(os.path.join("rr-loop", "task-1"), error)
+        self.assertIn(os.path.join("spec-delivery", "task-1"), error)
         code, result = run("init", "--ledger", ledger, "task=T-9")
         self.assertEqual(code, 0, result)
 

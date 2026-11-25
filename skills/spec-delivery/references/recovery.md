@@ -1,4 +1,4 @@
-# Recovery rr-loop
+# Recovery spec-delivery
 
 Integration и task worktrees относятся к режиму graph. Читай при resume/неизвестном исходе/сбое worker/смене владельца незакоммиченных правок. Общий snapshot ledger описан в [протоколе](protocol.md).
 

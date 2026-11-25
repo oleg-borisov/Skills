@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Реализует spec в одной rr-loop фазе, выполняет targeted checks и быстрый ярус и коммитит.
+description: Реализует spec в одной spec-delivery фазе, выполняет targeted checks и быстрый ярус и коммитит.
 temperature: 0.2
 disallowedTools:
   - Agent
