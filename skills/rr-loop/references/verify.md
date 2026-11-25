@@ -12,9 +12,9 @@ Reuse полного GREEN (`RR gate --reuse`): тот же HEAD/inputs либо
 
 Иначе fresh verifier: `{base_sha: green.head или BASE, head_sha: HEAD, artifacts_dir: LEDGER_DIR, gate_path?}` и refs scope; его JSON — `RR gate`. RED → fresh reviser с gate_path и finding_ids: [] без review findings; targeted repair/commit → delta Review → Triage → новый gate с gate_path прежнего RED: verifier сначала повторяет только упавшие checks и идёт на полный проход лишь после их успеха. Unchanged HEAD после repair, `stop` в ответе CLI либо BLOCKED без доказанно устранимой технической причины → HUMAN_ATTENTION.
 
-## Merge: rr-loop и cascade
+## Merge одной спеки
 
-rr-parallel-loop завершается по [completion](completion.md).
+Граф завершается по [completion](completion.md).
 
 1. Нужны quality GREEN и согласие на merge; отказ в согласии → вопрос, WAITING_FOR_HUMAN/pending_action. Rebase на актуальный tip цели; конфликт/ошибка → HUMAN_ATTENTION без автоматического retry.
 2. Новый HEAD → `RR set head=<sha>` → необходимый delta Review → Triage → Verify с проверкой reuse GREEN.

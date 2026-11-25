@@ -52,7 +52,7 @@
 
 Скрипт сначала генерирует Codex profiles, затем:
 
-- подключает directory skills `rr-loop`, `rr-cascade-loop-fast` и `rr-parallel-loop` junction-ами;
+- подключает directory skill `rr-loop` junction-ами;
 - копирует flat Markdown agents и command в Claude Code/OpenCode;
 - сохраняет ~/.codex/agents как junction на .codex/agents;
 - копирует TOML leaf-agents и подключает skill во все Orca/codex-accounts/*/home;
@@ -129,9 +129,13 @@ OpenCode. Никакой скрипт модели для OpenCode не уста
 - Devin: `%APPDATA%\devin\agents\*.md` (Windows) или `~/.config/devin/agents/*.md` (macOS) — копии `.devin/agents/*.md`; новая сессия Devin видит шесть leaf-agents как subagent profiles.
 - В Qoder: `~/.qoder/skills/<skill>` — junction на `skills/<skill>` этого репозитория для каждого skill с `SKILL.md`; `~/.qoder/agents/*.md` — копии `.qoder/agents/*.md`. Новый task Qoder видит все шесть leaf-agents как subagent types; read-only роли не имеют Write/Edit/Agent, остальные не имеют Agent.
 - В Vibe: `~/.vibe/skills/<skill>` — junction на `skills/<skill>` этого репозитория для каждого skill с `SKILL.md`; `~/.vibe/agents/*.toml` — копии `.vibe/agents/*.toml`. Новая сессия Vibe видит шесть leaf-агентов как spawnable subagents; read-only роли имеют `never` на write_file/edit, все профили не запускают субагентов.
-- На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, commands `rr-loop.md`, `rr-cascade-loop-fast.md`, `rr-parallel-loop.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
+- На macOS: `~/.config/opencode/agents/*.md`, все `~/.config/opencode/skills/<skill>`, `rr-loop.md` в `~/.config/opencode/commands` и все `~/.agents/skills/<skill>` — симлинки на этот репозиторий.
 - В agent-каталогах присутствуют пять обязательных leaf-agents и опциональный scout; reviewer/custom-agent rr-loop отсутствуют.
 - `agents/*.md`, `.zcode/agents/*.md`, `.qoder/agents/*.md`, `.devin/agents/*.md`, `.vibe/agents/*.toml` и устанавливаемые OpenCode agents не содержат `model` и наследуют дефолтную модель хоста; `opencode.json` не содержит `agents.<rr-loop>.model`.
-- Skills вызываются в primary-контексте через /rr-loop, $rr-loop, /rr-cascade-loop-fast, $rr-cascade-loop-fast, /rr-parallel-loop, $rr-parallel-loop, /tdd или $tdd.
+- Skills вызываются в primary-контексте через `/rr-loop`, `$rr-loop`, `/tdd` или `$tdd`.
 - Минимальная версия Codex с custom agents и skills — 0.147.0.
-- У трёх rr skills и `wait-what-ru` есть `agents/openai.yaml` с `policy.allow_implicit_invocation: false`: Codex не читает `disable-model-invocation` и без этого файла показывает skill модели.
+- У `rr-loop` и `wait-what-ru` есть `agents/openai.yaml` с `policy.allow_implicit_invocation: false`: Codex не читает `disable-model-invocation` и без этого файла показывает skill модели.
+
+При обновлении старой установки удали оставшиеся ссылки и установленные копии
+`rr-parallel-loop` и `rr-cascade-loop-fast` из каталогов skills и commands.
+Журналы запусков находятся в checkout продукта и нужны для resume.

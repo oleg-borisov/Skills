@@ -1,8 +1,9 @@
-# Recovery rr workflows
+# Recovery rr-loop
 
-Integration и task worktrees относятся к rr-parallel-loop. Читай только при resume/неизвестном исходе/сбое worker/смене владельца незакоммиченных правок. Общий snapshot ledger описан в [протоколе](protocol.md).
+Integration и task worktrees относятся к режиму graph. Читай при resume/неизвестном исходе/сбое worker/смене владельца незакоммиченных правок. Общий snapshot ledger описан в [протоколе](protocol.md).
 
 1. Существующий запуск (отказ `RR init`) → resume либо явный reset по решению человека; без решения не удаляй и не dispatch дубликат. Reset не разрешает потерю незакоммиченного кода.
+   При resume используй сохранённый путь и `mode`; planning → продолжи выбор режима после init. Для старого ledger без mode: `workflow=rr-loop` → single, `workflow=rr-parallel-loop` → graph. Незавершённый каскад продолжай с навыком и протоколом из ревизии `c47fd72` репозитория Skills.
 2. Прочитай актуальный state нужными `RR get`; сверяй identity, sources, BASE/integration ancestry, branch/cwd/HEAD задач, liveness, PR/tracker state и pending intents. Изменение требований/graph решает человек, необъяснимый drift → HUMAN_ATTENTION. Notes сверяет worker.
 3. Живой worker → наблюдай, не создавай второго writer. Неизвестная liveness → HUMAN_ATTENTION. Завершённый worker без checkpoint → передай его финальный JSON CLI: повтор уже применённого handoff ничего не меняет. Продолжай фазу/counters/fixed points/pending_action, не новый Implement.
 4. `integrating` в state без результата → повтори `RR integrate --task <ID>`: CLI восстановит INTEGRATED либо прервёт зависший merge; отказ → HUMAN_ATTENTION. Внешний intent без result сверяй с сервисом; неизвестный исход не повторяй. Успешные результаты сохраняются до completion.

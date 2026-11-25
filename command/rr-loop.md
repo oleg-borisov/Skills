@@ -1,5 +1,5 @@
 ---
-description: Primary workflow implement → review → revise → gate → merge с durable ledger.
+description: Реализовать одну спецификацию или готовый граф задач с общим ревью и финальной проверкой.
 ---
 
 Оставаясь primary текущего диалога, используй установленный user-invoked skill `rr-loop` с входом: $ARGUMENTS. Не запускай отдельного controller-agent.

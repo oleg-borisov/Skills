@@ -2,20 +2,18 @@
 
 Переиспользуемые agent assets для Claude Code, OpenCode, Codex, ZCode, Qoder, Devin и Antigravity:
 
-- primary workflows /rr-loop, $rr-loop, /rr-cascade-loop-fast, $rr-cascade-loop-fast и /rr-parallel-loop, $rr-parallel-loop;
+- единый primary workflow `/rr-loop` или `$rr-loop`;
 - leaf-agents implementer, verifier, standards-reviewer, spec-reviewer, reviser и опциональный scout;
-- skills rr-loop, rr-cascade-loop-fast и rr-parallel-loop как source of truth своих controllers, локальный TDD skill в `skills/tdd/`, вспомогательный `skills/wait-what-ru/` и Markdown leaf-agents как source of truth для генерируемых профилей хостов.
+- `skills/rr-loop/` как контракт контроллера, локальный TDD skill в `skills/tdd/`, вспомогательный `skills/wait-what-ru/` и Markdown-контракты leaf-agents для генерации профилей хостов.
 
-`rr-parallel-loop` запускает готовые задачи графа в отдельных worktree и собирает
-integration-ветку с draft PR, когда этого требует tracker или пользователь.
-Review выполняется на объединённом результате. Он использует те же leaf-agents,
-что последовательные workflows. Логические сценарии: [прогон контракта](docs/validation/rr-parallel-loop.md).
+`rr-loop` реализует одну спецификацию в текущем checkout. Готовые задачи графа
+выполняются в отдельных worktree и собираются на integration-ветке. Параллелизм
+ограничен зависимостями, областями записи и ёмкостью хоста.
+[Решение об объединении](docs/adr/0009-unified-rr-loop.md).
 
-Во всех трёх workflows workers выполняют targeted checks; после review,
-исправлений и разбора замечаний независимый verifier выполняет gate — финальную
-проверку. В rr-loop это итог задачи, в cascade/parallel — всего плана. RED repair
-проходит targeted checks → review → triage → повторный gate. Cascade
-сохраняет промежуточные и покрывающие review. Решение: [ADR-0005](docs/adr/0005-final-gate-after-review.md).
+Workers выполняют targeted checks. После реализации всего плана следует общее
+ревью, разбор замечаний и финальная проверка независимым verifier. RED repair
+проходит targeted checks → review → triage → повторный gate.
 
 Workers до handoff выполняют быстрый ярус проверок repo, повторное Spec review
 ограничено diff исправления, замечания к неисполняемой документации идут одним

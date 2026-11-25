@@ -90,7 +90,7 @@ foreach ($agentName in $agentNames) {
 # 4. Синхронизация и адаптация навыков для Antigravity
 $skillsDir = Join-Path $repoRoot 'skills'
 $outputSkillsDir = Join-Path $pluginDir 'skills'
-$skillNames = @('rr-loop', 'rr-cascade-loop-fast', 'rr-parallel-loop')
+$skillNames = @('rr-loop')
 
 foreach ($skillName in $skillNames) {
     $sourceSkillDir = Join-Path $skillsDir $skillName
@@ -112,32 +112,6 @@ foreach ($skillName in $skillNames) {
     }
 }
 
-# Удаляем прежние известные references после переноса в общий rr-loop каталог.
-$legacyReferencesDir = Join-Path $outputSkillsDir 'rr-parallel-loop\references'
-foreach ($name in @('recovery.md', 'completion.md')) {
-    $legacyPath = Join-Path $legacyReferencesDir $name
-    if (Test-Path -LiteralPath $legacyPath) {
-        Remove-Item -LiteralPath $legacyPath -Force
-    }
-}
-if ((Test-Path -LiteralPath $legacyReferencesDir) -and
-    -not (Get-ChildItem -LiteralPath $legacyReferencesDir -Force | Select-Object -First 1)) {
-    Remove-Item -LiteralPath $legacyReferencesDir
-}
-
-# Удаляем прежние известные references после переноса в общий rr-loop каталог.
-$legacyReferencesDir = Join-Path $outputSkillsDir 'rr-parallel-loop\references'
-foreach ($name in @('recovery.md', 'completion.md')) {
-    $legacyPath = Join-Path $legacyReferencesDir $name
-    if (Test-Path -LiteralPath $legacyPath) {
-        Remove-Item -LiteralPath $legacyPath -Force
-    }
-}
-if ((Test-Path -LiteralPath $legacyReferencesDir) -and
-    -not (Get-ChildItem -LiteralPath $legacyReferencesDir -Force | Select-Object -First 1)) {
-    Remove-Item -LiteralPath $legacyReferencesDir
-}
-
 # 5. Правило плагина для Antigravity
 $rulesDir = Join-Path $pluginDir 'rules'
 if (-not (Test-Path -LiteralPath $rulesDir)) {
@@ -146,7 +120,7 @@ if (-not (Test-Path -LiteralPath $rulesDir)) {
 $rulesContent = @"
 # Antigravity Subagent Rules for RR Workflows
 
-При выполнении workflows \`rr-loop\`, \`rr-cascade-loop-fast\` и \`rr-parallel-loop\` в Antigravity все leaf-agents (\`implementer\`, \`verifier\`, \`standards-reviewer\`, \`spec-reviewer\`, \`reviser\`, \`scout\`) вызываются через инструмент \`invoke_subagent\` с \`TypeName: "self"\`, Role = имя роли (\`Implementer\`, \`Verifier\`, \`Standards Reviewer\`, \`Spec Reviewer\`, \`Reviser\`, \`Scout\`), а контракт и инструкции роли передаются в системной инструкции / prompt. Это гарантирует наследование необходимых write и execution инструментов от родителя.
+При выполнении \`rr-loop\` в Antigravity все leaf-agents (\`implementer\`, \`verifier\`, \`standards-reviewer\`, \`spec-reviewer\`, \`reviser\`, \`scout\`) вызываются через инструмент \`invoke_subagent\` с \`TypeName: "self"\`, Role = имя роли (\`Implementer\`, \`Verifier\`, \`Standards Reviewer\`, \`Spec Reviewer\`, \`Reviser\`, \`Scout\`), а контракт и инструкции роли передаются в системной инструкции / prompt. Это гарантирует наследование необходимых write и execution инструментов от родителя.
 "@
 Set-Content -LiteralPath (Join-Path $rulesDir 'AGENTS.md') -Value $rulesContent -Encoding utf8NoBOM
 

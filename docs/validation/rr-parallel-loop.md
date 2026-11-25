@@ -2,7 +2,8 @@
 
 Исторический прогон: порядок Verify → Review ниже заменён [ADR-0005](../adr/0005-final-gate-after-review.md). Проверка нового порядка трёх workflows описана в [final-gate-after-review.md](final-gate-after-review.md).
 
-Дата: 2026-10-11. Проверен текст [skill](../../skills/rr-parallel-loop/SKILL.md),
+Дата: 2026-10-11. Проверен тогдашний текст `skills/rr-parallel-loop/SKILL.md`
+(доступен в Git до [объединения](../adr/0009-unified-rr-loop.md)),
 [completion](../../skills/rr-loop/references/completion.md), общие
 `agents/*.md`. Workflows запускаются независимо; взаимный recovery не предусмотрен.
 
@@ -87,7 +88,7 @@ scope и continuation передаются через существующий d
 В трёх workflows удалены поиск, миграция и cleanup прежних Markdown ledgers;
 recovery текущих `state.json`/`findings.jsonl` сохранён. Межскилловые ссылки, поиск чужих ledger и общий для workflows claim удалены; собственный claim rr-parallel-loop защищает его concurrent controllers.
 
-Структуры `state.json` и события `findings.jsonl` определены JSON/JSONL-блоками в разделе «Ledger и recovery» основного [SKILL.md](../../skills/rr-parallel-loop/SKILL.md). Оба блока успешно разобраны; sample finding не считается событием запуска, новый журнал создаётся пустым. С 2026-10-14 детали возобновления вынесены в [recovery.md](../../skills/rr-loop/references/recovery.md), загружаемый при resume, сбое или передаче dirty worktree; claim и checkpoint остаются в основном skill.
+Структуры `state.json` и события `findings.jsonl` были определены JSON/JSONL-блоками в разделе «Ledger и recovery» тогдашнего `skills/rr-parallel-loop/SKILL.md`. Оба блока успешно разобраны; sample finding не считается событием запуска, новый журнал создаётся пустым. С 2026-10-14 детали возобновления вынесены в [recovery.md](../../skills/rr-loop/references/recovery.md), загружаемый при resume, сбое или передаче dirty worktree; claim и checkpoint остаются в основном skill.
 
 ## Оптимизация по сессии, 2026-10-14
 

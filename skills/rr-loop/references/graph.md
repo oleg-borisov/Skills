@@ -1,26 +1,18 @@
----
-name: rr-parallel-loop
-description: Реализовать готовый граф задач в отдельных worktree, собрать integration и пройти review → gate → merge.
-disable-model-invocation: true
----
+# Реализация графа задач
 
-# RR Parallel Loop
-
-Оставайся primary-controller. Сначала прочитай [общий протокол](../rr-loop/references/protocol.md): роли, запуск без остановок, ledger и handoff обязательны. Его файлы фаз [review](../rr-loop/references/review.md) и [verify](../rr-loop/references/verify.md) читай при входе в фазу. Rolling frontier запускает готовые задачи, пока другие workers работают; общий review/gate — на собранной integration, не на каждом ticket.
+Вход: `mode=graph`, BASE и каталог журнала уже зафиксированы по [SKILL.md](../SKILL.md).
 
 Один writer на worktree. Только controller последовательно интегрирует ветки. Review/verifier получают неподвижный integration HEAD. INTEGRATED означает доступность для зависимых задач, не GREEN/approval/tracker completion. Сохраняй чужие изменения; новые worktrees создавай от фиксированного SHA. Reset существующего checkout/force-cleanup запрещены.
 
 ## Ledger
 
-LEDGER_DIR = `.scratch/rr-parallel-loop/<integration-branch>/` в исходном checkout. Дополнительно к общему state: `integration.{cwd,branch}`, parent, max_workers, `tasks.<ID>.{deps,write_scope,state,cwd,branch,base,head}`, текущий owner/liveness задачи и evidence завершённых prerequisites. Граф хранится один раз. Head запуска — integration HEAD.
+Дополнительно к общему state: `integration.{cwd,branch}`, parent, max_workers, `tasks.<ID>.{deps,write_scope,state,cwd,branch,base,head}`, текущий owner/liveness задачи и evidence завершённых prerequisites. Граф хранится один раз. Head запуска — integration HEAD.
 
 ## 0. План
 
-1. `RR init` по протоколу в исходном checkout: BASE = HEAD, цель merge — parent. Дубликат существующего запуска не запускай.
-2. Прочитай spec и готовые tickets: criteria, test seams, статусы, комментарии, зависимости; tracker по `docs/agents/issue-tracker.md`. Все завершены → отчёт без workers. Нет готового графа → предложи rr-loop, не создавай tickets/новый workflow автоматически. Неопределённость criteria, отсутствие test seams для кода, циклы, неизвестные связи/статусы, конфликт источников или непроверяемый blocker → HUMAN_ATTENTION.
-3. У завершённых/внешних prerequisites нужен код в BASE или подтверждающее evidence: одного tracker-статуса недостаточно. Не придумывай продуктовые зависимости.
-4. По умолчанию установи `max_workers` равным максимальному числу исполнителей, которое поддерживают доступные слоты хоста и ресурсы. Если пользователь задал лимит, используй его в пределах этой ёмкости. Назначь write_scope задач по tickets/standards/notes, включая tests/fixtures/generated outputs. Сериализуй задачи с пересекающимися/неизвестными scopes или общими test resources через locks при dispatch. Подтверждённые особенности запуска checks сохрани один раз в plan/notes.
-5. Создай integration worktree/ветку от BASE, имена по repo conventions/primary task ID; одним `RR set` сохрани integration, parent, max_workers и tasks в PENDING. Покажи graph/scopes/max_workers/integration/parent и работай без ожидания подтверждения; изменение требований/графа по ходу решает человек. Выполни условный Exploration по протоколу. Dispatch задаёт абсолютный cwd, branch, expected HEAD и назначение; все worker операции только в этом cwd. Host не адресует worktrees → BLOCKED_UNSUPPORTED_HOST.
+1. Сверь criteria, test seams, статусы, комментарии и зависимости задач по spec и tracker. Циклы, неизвестные связи/статусы, конфликт источников или непроверяемый blocker → HUMAN_ATTENTION. У завершённых/внешних prerequisites нужен код в BASE или подтверждающее evidence: одного tracker-статуса недостаточно. Все задачи завершены → отчёт без workers и cleanup нетронутого журнала по протоколу.
+2. По умолчанию `max_workers` равен максимальному числу исполнителей, которое поддерживают доступные слоты хоста и ресурсы. Если пользователь задал лимит, используй его в пределах этой ёмкости. Назначь write_scope задач по tickets/standards/notes, включая tests/fixtures/generated outputs. Сериализуй задачи с пересекающимися/неизвестными scopes или общими test resources через locks при dispatch. Подтверждённые особенности запуска checks сохрани один раз в plan/notes.
+3. Host не адресует worktrees → BLOCKED_UNSUPPORTED_HOST. Цель merge (parent) — из аргументов либо текущая ветка исходного checkout. Создай integration worktree/ветку от BASE, имена по repo conventions/primary task ID; одним `RR set` сохрани integration, parent, merge_target, max_workers и tasks в PENDING. Покажи graph/scopes/max_workers/integration/parent и работай без ожидания подтверждения; изменение требований/графа по ходу решает человек. Выполни условный Exploration по протоколу. Dispatch задаёт абсолютный cwd, branch, expected HEAD и назначение; все worker операции только в этом cwd.
 
 ## 1. Schedule → Implement → Integrate
 
@@ -50,12 +42,4 @@ Frontier пуст, workers нет, PENDING остались → HUMAN_ATTENTION.
 
 После первой интеграции создай один draft PR, только если PR запрошен или обязателен repo/tracker workflow. Проверь существующий PR/base/head; closing refs — по tracker. Сохрани URL/result, не создавай повторно при recovery; прикрепи PR к диалогу, если host поддерживает. Draft не закрывает tickets и не становится ready до Done.
 
-## 2. Freeze → Review → Revise → Verify
-
-Все INTEGRATED → дождись выхода writers; integration HEAD неподвижен. Первый Spec — full-spec всей spec, включая ранее завершённые задачи; Standards — по списку standards запуска. Review/Triage/repair/лимиты по общему протоколу. Два нужных reviewer параллельно; CODE/formatter/merge во время review/gate запрещены.
-
-Все обязательные coverage актуальны, OPEN findings нет → одним `RR set` tasks REVIEWED → Verify всего плана по протоколу. REVIEWED не означает GREEN/tracker completion. RED repair в integration получает gate_path и refs затронутого scope; новый commit всегда проходит delta Review → Triage → новый gate, без нового Schedule. Для технического BLOCKED используй recovery; незавершённый gate не GREEN.
-
-## 3. Done
-
-Quality GREEN → прочитай [completion](../rr-loop/references/completion.md): final merge, tracker actions, cleanup worktrees, отчёт и удаление всего LEDGER_DIR без архивации. До успешного merge/согласованных actions COMPLETED запрещён. Выполненные проверки/reviews на тех же входах не повторяй.
+Все задачи INTEGRATED → перейди к общему Review в [SKILL.md](../SKILL.md). REVIEWED подтверждает покрытие ревью; итоговое качество и tracker completion требуют отдельного завершения.

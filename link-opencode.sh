@@ -23,7 +23,7 @@ REPO_SKILLS_PATH="$REPO_ROOT/skills"
 REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"
 REPO_ZCODE_AGENTS_PATH="$REPO_ROOT/.zcode/agents"
 REPO_DEVIN_AGENTS_PATH="$REPO_ROOT/.devin/agents"
-WORKFLOWS=('rr-loop' 'rr-cascade-loop-fast' 'rr-parallel-loop')
+WORKFLOWS=('rr-loop')
 
 USER_AGENTS_ROOT="$HOME/.agents"
 OPENCODE_ROOT="$HOME/.config/opencode"

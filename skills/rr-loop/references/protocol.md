@@ -1,6 +1,6 @@
-# Общий протокол rr workflows
+# Протокол rr-loop
 
-Обязателен для primary-controller всех трёх rr skills. Порядок задач/интеграции — в вызывающем SKILL.md.
+Обязателен для primary-controller. Порядок фаз — в [SKILL.md](../SKILL.md).
 
 ## Роли и контекст
 
@@ -22,7 +22,7 @@ Tracker: API/статусы только из `docs/agents/issue-tracker.md`. Д
 
 Первое действие — `RR init`, до чтения tickets и ранних выходов. Отказ из-за существующего запуска → предложи resume/reset; без решения не удаляй и не повторяй реализацию. Ранний выход без работы → `RR cleanup` нетронутого журнала.
 
-Вызов навыка — согласие человека на завершающие действия: merge в цель при quality GREEN и чистом rebase, tracker completion и удаление созданных запуском worktrees. Отказ из аргументов сохрани при init (`consent.merge=false`, `consent.tracker=false`, `consent.worktrees=false`): такое действие требует вопроса в Done. Цель merge передай в `--target`: из аргументов либо ветка, от которой controller сам создал task-ветку. Текущая ветка — task-ветка, если её имя содержит ID задачи запуска; цель при этом не названа → один вопрос до первого worker. Push и перевод PR в ready — только когда их требует repo workflow или tracker; слияние PR остаётся за человеком/CI. План и ход работы показывай без ожидания подтверждения; явная directive человека имеет приоритет над умолчаниями.
+Вызов навыка — согласие человека на завершающие действия: merge в цель при quality GREEN по правилам выбранного режима, tracker completion и удаление созданных запуском worktrees. Отказ из аргументов сохрани при init (`consent.merge=false`, `consent.tracker=false`, `consent.worktrees=false`): такое действие требует вопроса в Done. Известную при init цель передай в `--target`, иначе запиши в `merge_target` до первого worker. Текущая ветка — task-ветка, если её имя содержит ID задачи запуска. Push и перевод PR в ready — только когда их требует repo workflow или tracker; слияние PR остаётся за человеком/CI. План и ход работы показывай без ожидания подтверждения; явная directive человека имеет приоритет над умолчаниями.
 
 `status`: RUNNING; WAITING_FOR_HUMAN с pending_action — конкретный вопрос, после ответа RUNNING и продолжение в текущем диалоге; HUMAN_ATTENTION — остановка, которую controller не вправе снять сам: сообщи причину и вопросы; STOPPED_BY_HUMAN — STOP исполняй сразу; COMPLETED. HUMAN_ATTENTION и STOP сохраняют данные и запрещают новые writers. Неясность требований всегда решает человек, не controller.
 
@@ -36,11 +36,11 @@ State, handoffs и findings меняет только controller и только
 - `RR review --ledger <dir> --role spec-reviewer|standards-reviewer [--ids F1,F2] [--full-spec]` — сверяет head и ось IDs; атомарно: dispositions, repaired, новые IDs с severity, coverage оси; возвращает fixed/open/new/critical/quality. `RR review --axis <spec|standards> --skip <reason>` — ось NOT_APPLICABLE для текущего head.
 - `RR gate --ledger <dir>` — verdict verifier, счётчик RED, последний полный GREEN; возвращает ref handoff для gate_path. `RR gate --reuse [<proof>]` и `RR gate --not-applicable <reason>` — решения controller по verify.
 - `RR finding --ledger <dir> list | severity <IDs> <BLOCKER|MAJOR|MINOR> | close <IDs> <reason> | leave <IDs>` — severity, закрытие с причиной, оставленные MINOR.
-- `RR integrate --ledger <dir> --task <ID>` — rr-parallel-loop: merge READY задачи в integration.
+- `RR integrate --ledger <dir> --task <ID>` — режим graph: merge READY задачи в integration.
 - `RR verify --cwd <cwd> --head <sha> [--base <sha>] [--new-commit] [--scope <путь|glob>…]` — сверка Git вне handoff.
 - `RR cleanup --ledger <dir>` — удаление каталога запуска при status COMPLETED либо нетронутого запуска.
 
-LEDGER_DIR = `<checkout>/.scratch/<workflow>/<run>`, run — имя ветки с `-` вместо `/`. Каталог принадлежит одному запуску: handoffs, notes и управляемые логи — под ним, штатные build outputs — на своих местах; workers получают абсолютные пути. Лимиты итераций и RED ведёт CLI (`LIMITS` в rr.py).
+Каталог ledger принадлежит одному запуску: handoffs, notes и управляемые логи — под ним, штатные build outputs — на своих местах; workers получают абсолютные пути. Лимиты итераций и RED ведёт CLI (`LIMITS` в rr.py).
 
 Своими path храни только актуальное: task/spec_refs/branch, current_phase, pending_action, действующие constraints и неприменённые directives, текущих workers с liveness, retries технических попыток. Внешнее действие: intent до вызова, result/ID после; успешные results сохраняй до конца запуска для защиты от повторов. Применённые указания удаляй тем же `RR set`.
 

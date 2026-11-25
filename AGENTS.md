@@ -7,15 +7,14 @@
 | Каталог | Назначение |
 | --- | --- |
 | agents/ | Канонические Markdown-контракты leaf-agents: implementer, verifier, standards-reviewer, spec-reviewer, reviser, опциональный scout. |
-| skills/rr-loop/ | Primary skill с controller workflow; `references/` — общий протокол и файлы фаз всех трёх rr skills, `scripts/rr.py` — CLI ledger. |
-| skills/rr-cascade-loop-fast/, skills/rr-parallel-loop/ | Каскад и параллельный граф задач; используют протокол и CLI rr-loop. |
+| skills/rr-loop/ | Primary skill для одной спецификации и графа задач; `references/` содержит протокол и файлы фаз, `scripts/rr.py` — CLI ledger. |
 | skills/tdd/, skills/wait-what-ru/ | Локальный TDD skill и вспомогательный user-invoked skill. |
-| command/ | Slash-command adapters трёх rr skills для Claude Code и OpenCode. |
+| command/ | Slash-command adapter rr-loop для Claude Code и OpenCode. |
 | .codex/, .zcode/, .qoder/, .devin/, .vibe/ agents | Генерируемые профили leaf-agents. Вручную не редактировать. |
 | tests/ | unittest для `rr.py`. |
 | docs/adr/, docs/validation/ | Решения и прогоны контрактов; [docs/hosts.md](docs/hosts.md) — генерация профилей, установка на hosts и её проверка. |
 
-Порядок controller workflow задаёт SKILL.md каждого rr skill. Общие контракты — в `skills/rr-loop/references/`: `protocol.md` (роли, ledger, handoff) обязателен для primary-controller, `review.md` и `verify.md` читаются при входе в фазу, `recovery.md` и `completion.md` — по условию. Leaf-agents работают по своим контрактам; controller protocol читают только как объект задачи на сами workflow assets. Отдельных custom controller-agents нет. Термины — в `GLOSSARY.md`.
+Порядок controller workflow задаёт `skills/rr-loop/SKILL.md`. В `references/` файл `protocol.md` (роли, ledger, handoff) обязателен для primary-controller. `review.md` и `verify.md` читаются при входе в фазу, `graph.md`, `recovery.md` и `completion.md` — по условию. Leaf-agents работают по своим контрактам и читают controller protocol только как объект задачи на сами workflow assets. Термины — в `GLOSSARY.md`.
 
 ## Зависимости
 

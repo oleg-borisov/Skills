@@ -1,6 +1,6 @@
-# Completion rr-parallel-loop
+# Завершение графа задач
 
-Читает только rr-parallel-loop; rr-loop и каскад завершаются по [verify](verify.md).
+Одна спека завершается по [verify](verify.md).
 
 Вход: quality GREEN, writers нет. Цель (parent) зафиксирована при init и отлична от integration. Согласие на final merge, tracker completion и удаление созданных worktrees дано вызовом навыка; при отказе в аргументах — вопрос, WAITING_FOR_HUMAN/pending_action. Удаление LEDGER_DIR после COMPLETED согласия и архива не требует.
 
