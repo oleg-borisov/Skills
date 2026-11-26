@@ -11,7 +11,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# Local Agent Skills discovery junction created by link-codex.ps1
+# Local skill discovery and plugin artifacts
 .agents/
 .gemini/
 

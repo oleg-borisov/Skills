@@ -30,18 +30,6 @@ gate и интеграции выполняет `rr.py`; сверка хешей
 запуска убраны: [ADR-0008](docs/adr/0008-no-hash-snapshot-claim.md). Цена
 запуска до и после: [эталонные сценарии](docs/validation/run-cost.md).
 
-Синхронизация локальных окружений:
-
-    .\link-codex.ps1
-
-На macOS для OpenCode и `~/.agents`:
-
-    ./link-opencode.sh
-
-Qoder, Antigravity и Mistral Vibe:
-
-    .\link-qoder.ps1
-    .\link-gemini.ps1
-    .\link-vibe.ps1
-
-Формат и зависимости описаны в AGENTS.md. Пути навыков, установка профилей и миграция старых окружений описаны в [docs/hosts.md](docs/hosts.md).
+Чтобы подключить набор навыков, открой checkout в агенте и попроси его установить
+навыки для нужного хоста. Можно назвать конкретные навыки. Агент определит активное
+окружение и способ подключения по [инструкции](docs/hosts.md).

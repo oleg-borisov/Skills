@@ -15,6 +15,8 @@
 
 Порядок controller workflow задаёт `skills/spec-delivery/SKILL.md`. В `references/` файл `protocol.md` (роли, ledger, handoff) обязателен для primary-controller. `review.md` и `verify.md` читаются при входе в фазу, `graph.md`, `recovery.md` и `completion.md` — по условию. Leaf-agents работают по своим контрактам и читают controller protocol только как объект задачи на сами workflow assets. Термины — в `GLOSSARY.md`.
 
+При запросе на подключение навыков прочитай [docs/hosts.md](docs/hosts.md). Для именованных профилей используй `setup-agents`.
+
 ## Зависимости
 
 - Leaf-agents используют системные skills только по явным ссылкам в своих контрактах, например /tdd.
@@ -26,5 +28,4 @@
 
 - `skills/spec-delivery/scripts/rr.py` или `skills/setup-agents/scripts/render.py` → `python -m unittest discover -s tests`. Renderer использует только стандартную библиотеку Python 3.9+.
 - Новый user-invoked skill (`disable-model-invocation: true`) → добавь `agents/openai.yaml` с `policy.allow_implicit_invocation: false`: Codex первое поле не читает.
-- Установка навыков — `link-*` по [docs/hosts.md](docs/hosts.md). Установка профилей — `setup-agents`. Профили читают актуальные контракты по абсолютным путям.
 - Изменение поведения workflow фиксируй ADR в `docs/adr/`, если оно трудно обратимо и неочевидно.
