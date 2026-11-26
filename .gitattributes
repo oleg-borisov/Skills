@@ -1,8 +1,3 @@
-# Генераторы и shell/Python-скрипты пишут LF; без нормализации autocrlf помечает файлы изменёнными.
-.codex/agents/** text eol=lf
-.zcode/agents/** text eol=lf
-.qoder/agents/** text eol=lf
-.devin/agents/** text eol=lf
-.vibe/agents/** text eol=lf
+# Shell/Python-скрипты хранятся с LF.
 *.sh text eol=lf
 *.py text eol=lf

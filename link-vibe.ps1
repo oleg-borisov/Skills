@@ -1,19 +1,5 @@
 #requires -Version 7.0
 
-<#
-.SYNOPSIS
-    Генерирует Vibe subagent profiles и синхронизирует assets репозитория с ~/.vibe.
-
-.DESCRIPTION
-    Skills подключаются junction-ами на каталог skills репозитория, поэтому правки
-    не требуют повторной установки. Существующая копия skill заменяется только при
-    совпадении содержимого; иначе скрипт останавливается и сохраняет пользовательские файлы.
-    Leaf-agents копируются поимённо в ~/.vibe/agents, сторонние файлы Vibe не трогаются.
-    Каталог установки берётся из VIBE_HOME, по умолчанию ~/.vibe.
-    Клон репозитория установки не требует: сессия Vibe в доверенном клоне сама видит
-    project-scope .vibe/agents и skills (~/.agents/skills | .agents/skills).
-#>
-
 [CmdletBinding()]
 param()
 
@@ -22,7 +8,6 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 $userProfilePath = [Environment]::GetFolderPath('UserProfile')
 $vibeRoot = if ($env:VIBE_HOME) { $env:VIBE_HOME.TrimEnd('\') } else { Join-Path $userProfilePath '.vibe' }
-$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser', 'scout')
 
 function Assert-PathWithin {
     param(
@@ -98,41 +83,7 @@ function Set-DirectoryJunction {
     Write-Host "Junction: $Path -> $Target"
 }
 
-function Set-FileCopy {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Source,
-        [Parameter(Mandatory)][string]$Root
-    )
-
-    Assert-PathWithin -Path $Path -Root $Root
-    if (-not (Test-Path -LiteralPath $Source)) {
-        throw "Источник файла отсутствует: $Source"
-    }
-
-    $parentPath = Split-Path -Parent $Path
-    if (-not (Test-Path -LiteralPath $parentPath)) {
-        New-Item -ItemType Directory -Path $parentPath -Force | Out-Null
-    }
-
-    if (Test-Path -LiteralPath $Path) {
-        $item = Get-Item -LiteralPath $Path -Force
-        if ($item.PSIsContainer) {
-            throw "На месте файла существует каталог: $Path"
-        }
-        if ($item.LinkType) {
-            Remove-Item -LiteralPath $Path -Force
-        }
-    }
-
-    Copy-Item -LiteralPath $Source -Destination $Path -Force
-    Write-Host "Copied: $Path"
-}
-
-& (Join-Path $repoRoot 'sync-vibe-agents.ps1')
-
 $repoSkillsPath = Join-Path $repoRoot 'skills'
-$repoVibeAgentsPath = Join-Path $repoRoot '.vibe\agents'
 $skillNames = @(
     Get-ChildItem -LiteralPath $repoSkillsPath -Directory |
         Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') } |
@@ -146,8 +97,4 @@ foreach ($skillName in $skillNames) {
     Set-DirectoryJunction -Path (Join-Path $vibeRoot "skills\$skillName") -Target (Join-Path $repoSkillsPath $skillName) -Root $vibeRoot
 }
 
-foreach ($agentName in $agentNames) {
-    Set-FileCopy -Path (Join-Path $vibeRoot "agents\$agentName.toml") -Source (Join-Path $repoVibeAgentsPath "$agentName.toml") -Root $vibeRoot
-}
-
-Write-Host "Vibe assets synchronized: $($skillNames.Count) skills, $($agentNames.Count) agents."
+Write-Host "Vibe skills synchronized: $($skillNames.Count)."

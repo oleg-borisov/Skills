@@ -1,15 +1,19 @@
 # Skills
 
-Переиспользуемые agent assets для Claude Code, OpenCode, Codex, ZCode, Qoder, Devin и Antigravity:
+Переиспользуемые agent assets для Claude Code, OpenCode, Codex, ZCode, Qoder, Devin, Antigravity и Mistral Vibe.
 
 - единый primary workflow `/spec-delivery` или `$spec-delivery`;
-- leaf-agents implementer, verifier, standards-reviewer, spec-reviewer, reviser и опциональный scout;
-- `skills/spec-delivery/` как контракт контроллера, локальный TDD skill в `skills/tdd/`, вспомогательный `skills/wait-what-ru/` и Markdown-контракты leaf-agents для генерации профилей хостов.
+- контракты implementer, verifier, standards-reviewer, spec-reviewer, reviser и опционального scout в `skills/spec-delivery/references/roles/`;
+- `/setup-agents` или `$setup-agents` для установки именованных профилей, локальный `tdd` и вспомогательный `wait-what-ru`.
 
 `spec-delivery` реализует одну спецификацию в текущем checkout. Готовые задачи графа
 выполняются в отдельных worktree и собираются на integration-ветке. Параллелизм
 ограничен зависимостями, областями записи и ёмкостью хоста.
 [Решение об объединении](docs/adr/0009-unified-rr-loop.md).
+
+Каждый исполнитель читает контракт роли из навыка по абсолютному пути.
+Контроллер использует именованный профиль, если он доступен, или универсальный
+тип субагента хоста. [ADR-0010](docs/adr/0010-role-contracts-in-skill.md).
 
 Workers выполняют targeted checks. После реализации всего плана следует общее
 ревью, разбор замечаний и финальная проверка независимым verifier. RED repair
@@ -30,13 +34,14 @@ gate и интеграции выполняет `rr.py`; сверка хешей
 
     .\link-codex.ps1
 
-На macOS для OpenCode, ZCode, Devin и `~/.agents`:
+На macOS для OpenCode и `~/.agents`:
 
     ./link-opencode.sh
 
-Qoder и Antigravity:
+Qoder, Antigravity и Mistral Vibe:
 
     .\link-qoder.ps1
     .\link-gemini.ps1
+    .\link-vibe.ps1
 
-Формат и зависимости описаны в AGENTS.md, генерация профилей и целевые каталоги hosts — в [docs/hosts.md](docs/hosts.md).
+Формат и зависимости описаны в AGENTS.md. Пути навыков, установка профилей и миграция старых окружений описаны в [docs/hosts.md](docs/hosts.md).

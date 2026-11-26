@@ -1,17 +1,5 @@
 #requires -Version 7.0
 
-<#
-.SYNOPSIS
-    Генерирует Qoder subagent profiles и синхронизирует assets репозитория с ~/.qoder.
-
-.DESCRIPTION
-    Skills подключаются junction-ами на каталог skills репозитория, поэтому правки
-    не требуют повторной установки. Существующая копия skill заменяется только при
-    совпадении содержимого; иначе скрипт останавливается и сохраняет пользовательские файлы.
-    Leaf-agents копируются в ~/.qoder/agents: Qoder читает определения subagents из файлов.
-    Slash-command adapters не устанавливаются: в Qoder skills вызываются напрямую через /<name>.
-#>
-
 [CmdletBinding()]
 param()
 
@@ -20,7 +8,6 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 $userProfilePath = [Environment]::GetFolderPath('UserProfile')
 $qoderRoot = Join-Path $userProfilePath '.qoder'
-$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser', 'scout')
 
 function Assert-PathWithin {
     param(
@@ -96,41 +83,7 @@ function Set-DirectoryJunction {
     Write-Host "Junction: $Path -> $Target"
 }
 
-function Set-FileCopy {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Source,
-        [Parameter(Mandatory)][string]$Root
-    )
-
-    Assert-PathWithin -Path $Path -Root $Root
-    if (-not (Test-Path -LiteralPath $Source)) {
-        throw "Источник файла отсутствует: $Source"
-    }
-
-    $parentPath = Split-Path -Parent $Path
-    if (-not (Test-Path -LiteralPath $parentPath)) {
-        New-Item -ItemType Directory -Path $parentPath -Force | Out-Null
-    }
-
-    if (Test-Path -LiteralPath $Path) {
-        $item = Get-Item -LiteralPath $Path -Force
-        if ($item.PSIsContainer) {
-            throw "На месте файла существует каталог: $Path"
-        }
-        if ($item.LinkType) {
-            Remove-Item -LiteralPath $Path -Force
-        }
-    }
-
-    Copy-Item -LiteralPath $Source -Destination $Path -Force
-    Write-Host "Copied: $Path"
-}
-
-& (Join-Path $repoRoot 'sync-qoder-agents.ps1')
-
 $repoSkillsPath = Join-Path $repoRoot 'skills'
-$repoQoderAgentsPath = Join-Path $repoRoot '.qoder\agents'
 $skillNames = @(
     Get-ChildItem -LiteralPath $repoSkillsPath -Directory |
         Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') } |
@@ -144,8 +97,4 @@ foreach ($skillName in $skillNames) {
     Set-DirectoryJunction -Path (Join-Path $qoderRoot "skills\$skillName") -Target (Join-Path $repoSkillsPath $skillName) -Root $qoderRoot
 }
 
-foreach ($agentName in $agentNames) {
-    Set-FileCopy -Path (Join-Path $qoderRoot "agents\$agentName.md") -Source (Join-Path $repoQoderAgentsPath "$agentName.md") -Root $qoderRoot
-}
-
-Write-Host "Qoder assets synchronized: $($skillNames.Count) skills, $($agentNames.Count) agents."
+Write-Host "Qoder skills synchronized: $($skillNames.Count)."

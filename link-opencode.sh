@@ -1,34 +1,14 @@
 #!/usr/bin/env bash
-#
-# Синхронизирует spec-delivery assets с macOS-хостами через symlink (аналог junction).
-#
-# Отличие от link-codex.ps1: на macOS skills, OpenCode agents и command
-# подключаются симлинками — правки в репозитории подхватываются автоматически,
-# повторная установка не нужна. Исключение — ZCode subagent-профили:
-# ZCode на macOS не читает симлинки, поэтому ~/.zcode/agents/*.md копируются.
-# Devin-профили (~/.config/devin/agents/*.md) тоже копируются.
-# Скрипт изменяет только известные spec-delivery assets и сохраняет остальные
-# пользовательские файлы.
-#
-# Сфера: OpenCode (~/.config/opencode), ZCode (~/.zcode), Devin (~/.config/devin)
-# и канонический ~/.agents.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-AGENTS=('implementer' 'verifier' 'standards-reviewer' 'spec-reviewer' 'reviser' 'scout')
-
 REPO_SKILLS_PATH="$REPO_ROOT/skills"
-REPO_MARKDOWN_AGENTS_PATH="$REPO_ROOT/agents"
-REPO_ZCODE_AGENTS_PATH="$REPO_ROOT/.zcode/agents"
-REPO_DEVIN_AGENTS_PATH="$REPO_ROOT/.devin/agents"
 WORKFLOWS=('spec-delivery')
 
 USER_AGENTS_ROOT="$HOME/.agents"
 OPENCODE_ROOT="$HOME/.config/opencode"
-ZCODE_ROOT="$HOME/.zcode"
-DEVIN_ROOT="$HOME/.config/devin"
 
 for workflow in "${WORKFLOWS[@]}"; do
     if [[ ! -f "$REPO_ROOT/command/$workflow.md" ]]; then
@@ -36,9 +16,6 @@ for workflow in "${WORKFLOWS[@]}"; do
         exit 1
     fi
 done
-
-bash "$REPO_ROOT/sync-zcode-agents.sh"
-bash "$REPO_ROOT/sync-devin-agents.sh"
 
 # set_symlink <path> <target>
 #  - Создаёт родительский каталог при необходимости.
@@ -70,31 +47,6 @@ set_symlink() {
     echo "Symlink: $path -> $target"
 }
 
-# copy_file <path> <source>
-#  - Копирует канонический файл поверх уже установленной копии.
-copy_file() {
-    local path="$1"
-    local source="$2"
-
-    if [[ ! -f "$source" ]]; then
-        echo "Ошибка: источник отсутствует: $source" >&2
-        exit 1
-    fi
-
-    local parent
-    parent="$(dirname "$path")"
-    if [[ ! -d "$parent" ]]; then
-        mkdir -p "$parent"
-    fi
-
-    if [[ -L "$path" ]]; then
-        rm -f "$path"
-    fi
-
-    cp -f "$source" "$path"
-    echo "Copied: $path"
-}
-
 shopt -s nullglob
 skill_entries=("$REPO_SKILLS_PATH"/*)
 shopt -u nullglob
@@ -121,16 +73,8 @@ for skill_path in "${skill_paths[@]}"; do
     set_symlink "$OPENCODE_ROOT/skills/$skill_name" "$skill_path"
 done
 
-# OpenCode: agents / commands.
-
-for name in "${AGENTS[@]}"; do
-    set_symlink "$OPENCODE_ROOT/agents/$name.md" "$REPO_MARKDOWN_AGENTS_PATH/$name.md"
-    copy_file "$ZCODE_ROOT/agents/$name.md" "$REPO_ZCODE_AGENTS_PATH/$name.md"
-    copy_file "$DEVIN_ROOT/agents/$name.md" "$REPO_DEVIN_AGENTS_PATH/$name.md"
-done
-
 for workflow in "${WORKFLOWS[@]}"; do
     set_symlink "$OPENCODE_ROOT/commands/$workflow.md" "$REPO_ROOT/command/$workflow.md"
 done
 
-echo "Agent assets synchronized."
+echo "Skills and command adapters synchronized."

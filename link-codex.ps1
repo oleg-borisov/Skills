@@ -1,15 +1,5 @@
 #requires -Version 7.0
 
-<#
-.SYNOPSIS
-    Генерирует Codex profiles и синхронизирует spec-delivery assets с локальными agent hosts.
-
-.DESCRIPTION
-    Directory skills подключаются junction-ами. Flat agent/command files копируются,
-    потому что file symlinks не подхватываются используемыми hosts. Скрипт изменяет
-    только известные spec-delivery assets и сохраняет остальные пользовательские файлы.
-#>
-
 [CmdletBinding()]
 param()
 
@@ -18,7 +8,6 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 $userProfilePath = [Environment]::GetFolderPath('UserProfile')
 $orcaAccountsRoot = Join-Path $env:APPDATA 'orca\codex-accounts'
-$agentNames = @('implementer', 'verifier', 'standards-reviewer', 'spec-reviewer', 'reviser', 'scout')
 $workflowNames = @('spec-delivery')
 
 function Assert-PathWithin {
@@ -94,49 +83,29 @@ function Set-FileCopy {
     Write-Host "Copied: $Path"
 }
 
-& (Join-Path $repoRoot 'sync-codex-agents.ps1')
-& (Join-Path $repoRoot 'sync-zcode-agents.ps1')
-& (Join-Path $repoRoot 'sync-devin-agents.ps1')
-& (Join-Path $repoRoot 'link-gemini.ps1')
-
 $repoSkillsPath = Join-Path $repoRoot 'skills'
-$repoMarkdownAgentsPath = Join-Path $repoRoot 'agents'
-$repoCodexAgentsPath = Join-Path $repoRoot '.codex\agents'
-$repoZCodeAgentsPath = Join-Path $repoRoot '.zcode\agents'
-$repoDevinAgentsPath = Join-Path $repoRoot '.devin\agents'
 
 $userAgentsRoot = Join-Path $userProfilePath '.agents'
 $claudeRoot = Join-Path $userProfilePath '.claude'
-$codexRoot = Join-Path $userProfilePath '.codex'
 $opencodeRoot = Join-Path $userProfilePath '.config\opencode'
-$zcodeRoot = Join-Path $userProfilePath '.zcode'
-$devinRoot = Join-Path $env:APPDATA 'devin'
 
 Set-DirectoryJunction -Path (Join-Path $repoRoot '.agents\skills') -Target $repoSkillsPath -Root $repoRoot
-Set-DirectoryJunction -Path (Join-Path $codexRoot 'agents') -Target $repoCodexAgentsPath -Root $codexRoot
 
-foreach ($workflowName in $workflowNames) {
+$skills = @('spec-delivery', 'setup-agents')
+
+foreach ($skill in $skills) {
     foreach ($hostRoot in @($userAgentsRoot, $claudeRoot, $opencodeRoot)) {
-        Set-DirectoryJunction -Path (Join-Path $hostRoot "skills\$workflowName") -Target (Join-Path $repoSkillsPath $workflowName) -Root $hostRoot
+        Set-DirectoryJunction -Path (Join-Path $hostRoot "skills\$skill") -Target (Join-Path $repoSkillsPath $skill) -Root $hostRoot
     }
 }
 
 foreach ($hostConfig in @(
-    @{ Root = $claudeRoot; Agents = Join-Path $claudeRoot 'agents'; Commands = Join-Path $claudeRoot 'command' },
-    @{ Root = $opencodeRoot; Agents = Join-Path $opencodeRoot 'agents'; Commands = Join-Path $opencodeRoot 'command' }
+    @{ Root = $claudeRoot; Commands = Join-Path $claudeRoot 'command' },
+    @{ Root = $opencodeRoot; Commands = Join-Path $opencodeRoot 'command' }
 )) {
-    foreach ($agentName in $agentNames) {
-        Set-FileCopy -Path (Join-Path $hostConfig.Agents "$agentName.md") -Source (Join-Path $repoMarkdownAgentsPath "$agentName.md") -Root $hostConfig.Root
-    }
-
     foreach ($workflowName in $workflowNames) {
         Set-FileCopy -Path (Join-Path $hostConfig.Commands "$workflowName.md") -Source (Join-Path $repoRoot "command\$workflowName.md") -Root $hostConfig.Root
     }
-}
-
-foreach ($agentName in $agentNames) {
-    Set-FileCopy -Path (Join-Path $zcodeRoot "agents\$agentName.md") -Source (Join-Path $repoZCodeAgentsPath "$agentName.md") -Root $zcodeRoot
-    Set-FileCopy -Path (Join-Path $devinRoot "agents\$agentName.md") -Source (Join-Path $repoDevinAgentsPath "$agentName.md") -Root $devinRoot
 }
 
 if (Test-Path -LiteralPath $orcaAccountsRoot) {
@@ -144,18 +113,12 @@ if (Test-Path -LiteralPath $orcaAccountsRoot) {
         $accountHomePath = Join-Path $accountDirectory.FullName 'home'
         if (-not (Test-Path -LiteralPath $accountHomePath)) { continue }
 
-        $accountAgentsPath = Join-Path $accountHomePath 'agents'
         $accountSkillsPath = Join-Path $accountHomePath 'skills'
 
-        foreach ($agentName in $agentNames) {
-            Set-FileCopy -Path (Join-Path $accountAgentsPath "$agentName.toml") -Source (Join-Path $repoCodexAgentsPath "$agentName.toml") -Root $accountHomePath
+        foreach ($skill in $skills) {
+            Set-DirectoryJunction -Path (Join-Path $accountSkillsPath $skill) -Target (Join-Path $repoSkillsPath $skill) -Root $accountHomePath
         }
-
-        foreach ($workflowName in $workflowNames) {
-            Set-DirectoryJunction -Path (Join-Path $accountSkillsPath $workflowName) -Target (Join-Path $repoSkillsPath $workflowName) -Root $accountHomePath
-        }
-
     }
 }
 
-Write-Host 'Agent assets synchronized.'
+Write-Host 'Skills and command adapters synchronized.'
