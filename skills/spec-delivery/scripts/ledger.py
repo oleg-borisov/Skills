@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Механика ledger запусков: атомарный state, handoffs, findings, gate, интеграция, сверка Git, cleanup.
 
-Вызывает только primary-controller. Вывод — одна компактная строка JSON; ошибка — строка в stderr и код 1.
+Изменения выполняет primary-controller. Вывод — одна компактная строка JSON; ошибка — строка в stderr и код 1.
 """
 import argparse
 import fnmatch
@@ -76,11 +76,13 @@ def check(value, schema, where):
             check(value[key], sub, f"{where}.{key}")
 
 
-def git(cwd, *args, ok=(0,)):
-    proc = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True, encoding="utf-8")
+def git(cwd, *args, ok=(0,), nul=False):
+    proc = subprocess.run(["git", "-C", cwd, *args], capture_output=True)
     if proc.returncode not in ok:
-        raise Fail(f"git {' '.join(args)}: {proc.stderr.strip() or proc.returncode}")
-    return proc.returncode, proc.stdout.strip()
+        error = proc.stderr.decode("utf-8", errors="replace").strip()
+        raise Fail(f"git {' '.join(args)}: {error or proc.returncode}")
+    output = proc.stdout.decode("utf-8")
+    return proc.returncode, output if nul else output.strip()
 
 
 class Lock:
@@ -99,7 +101,7 @@ class Lock:
             except OSError:
                 if time.monotonic() > deadline:
                     self.fh.close()
-                    raise Fail(f"занято другим вызовом RR: {self.path}")
+                    raise Fail(f"занято другим вызовом ledger.py: {self.path}")
                 time.sleep(0.05)
 
     def __exit__(self, *exc):
@@ -188,10 +190,10 @@ def apply_pairs(state, pairs, cwd):
             raise Fail(f"нужно path=value: {pair}")
         value = parse_value(text)
         if key == "quality":
-            raise Fail("quality вычисляет CLI: RR get quality")
+            raise Fail("quality вычисляет CLI: ledger.py get --ledger <dir> quality")
         if key == "status" and value not in STATUSES:
             raise Fail(f"status: {'|'.join(STATUSES)}")
-        if key in ("head", "base"):
+        if key in ("head", "base", "review_target"):
             code, value = git(cwd, "rev-parse", "--verify", "--quiet", text + "^{commit}", ok=(0, 1, 128))
             if code:
                 raise Fail(f"{key}: нет commit {text}")
@@ -222,8 +224,9 @@ def quality(state):
     head, axes, gate = state.get("head"), state.get("axes", {}), state.get("gate") or {}
     covered = all(axes.get(axis, {}).get("last_reviewed_head") == head
                   or (axes.get(axis, {}).get("skip") or {}).get("head") == head for axis in ("spec", "standards"))
-    green = (covered and not state.get("findings") and gate.get("head") == head
-             and gate.get("verdict") in ("GREEN", "NOT_APPLICABLE"))
+    gate_passed = gate.get("verdict") == "NOT_APPLICABLE" or (
+        gate.get("verdict") == "GREEN" and gate.get("validated") is True)
+    green = covered and not state.get("findings") and gate.get("head") == head and gate_passed
     tasks = state.get("tasks")
     if green and tasks:
         green = (all(task.get("state") == "REVIEWED" for task in tasks.values())
@@ -236,7 +239,15 @@ def checkout(ledger):
 
 
 def run_cwd(state, ledger, override=None):
-    return override or (state.get("integration") or {}).get("cwd") or state.get("cwd") or checkout(ledger)
+    return (override or state.get("candidate_cwd") or (state.get("integration") or {}).get("cwd")
+            or state.get("cwd") or checkout(ledger))
+
+
+def require_passed_checks(data):
+    checks = data.get("checks")
+    check(checks, CHECKS, "verifier.checks")
+    if not checks or any(item["result"] != "ok" for item in checks):
+        raise Fail("verifier: GREEN требует непустой checks, result=ok для каждой проверки")
 
 
 def read_json(a, role):
@@ -258,11 +269,16 @@ def read_json(a, role):
             check(data[key], schema, key)
     if role in FINDING:
         check(data.get("findings", []), [FINDING[role]], "findings")
+        for item in data.get("findings", []):
+            if "file" in item:
+                check(item["file"], str, "finding.file")
         has_open = bool(data.get("findings")) or any(d["state"] == "OPEN" for d in data.get("dispositions", []))
         if (data["verdict"] == "FINDINGS") != has_open and data["verdict"] in ("APPROVE", "FINDINGS"):
             raise Fail("verdict FINDINGS должен совпадать с наличием findings/OPEN dispositions")
     if role == "verifier" and (data["verdict"] == "GREEN") == bool(data.get("failures")):
         raise Fail("verifier: failures обязательны при RED/BLOCKED и запрещены при GREEN")
+    if role == "verifier" and data["verdict"] == "GREEN":
+        require_passed_checks(data)
     return data
 
 
@@ -276,6 +292,8 @@ def applied(ledger, name, role, data, args):
     if {key: value for key, value in old.items() if key not in ("role", "args", "result")} != data:
         return None
     if old.get("role") != role or old.get("args") != args:
+        if role in ("implementer", "reviser") and "cwd" not in old.get("args", {}):
+            raise Fail(f"handoff {name} записан без cwd/scope: сверь его по recovery")
         raise Fail(f"handoff {name} уже применён с другими параметрами")
     return old["result"]
 
@@ -349,7 +367,10 @@ def cmd_get(a):
     if a.all:
         out(view)
     elif a.paths:
-        out({key: lookup(view, key) for key in a.paths})
+        # Ключи repaired — буквальные имена файлов, включая точки.
+        repaired = state.get("repaired", {})
+        out({key: repaired.get(key[len("repaired."):]) if key.startswith("repaired.") else lookup(view, key)
+             for key in a.paths})
     else:
         out({key: (len(value) if isinstance(value, (dict, list)) else value) for key, value in view.items()})
 
@@ -359,12 +380,24 @@ def cmd_set(a):
     with locked(ledger):
         state = load(ledger)
         before = state.get("status")
-        apply_pairs(state, a.pairs, run_cwd(state, ledger))
+        previous_head, previous_target = state["head"], state.get("review_target")
+        cwd = run_cwd(state, ledger)
+        apply_pairs(state, a.pairs, cwd)
         for key in a.delete:
             *parents, leaf = key.split(".")
             node = lookup(state, ".".join(parents)) if parents else state
             if isinstance(node, dict):
                 node.pop(leaf, None)
+        head, target = state["head"], state.get("review_target")
+        reset_review = target != previous_target
+        if target and (reset_review or head != previous_head):
+            cwd = run_cwd(state, ledger)
+            if git(cwd, "merge-base", "--is-ancestor", target, head, ok=(0, 1))[0]:
+                raise Fail("review_target должен быть предком HEAD кандидата")
+            if not reset_review:
+                reset_review = git(cwd, "merge-base", "--is-ancestor", previous_head, head, ok=(0, 1))[0] != 0
+        if reset_review:
+            state["axes"] = {"spec": {}, "standards": {}}
         if state.get("status") == "COMPLETED" and before != "COMPLETED" and quality(state) != "GREEN":
             raise Fail("COMPLETED только при quality GREEN")
         save(ledger, state)
@@ -388,8 +421,8 @@ def inspect(cwd, head, base=None, new_commit=False, scope=None, dirty_ok=False):
         _, base = git(cwd, "rev-parse", base)
         if new_commit and base == actual:
             problems.append("нет нового commit")
-        _, names = git(cwd, "diff", "--name-only", base, actual)
-        changed = names.splitlines()
+        _, names = git(cwd, "diff", "--no-renames", "--name-only", "-z", base, actual, nul=True)
+        changed = names[:-1].split("\0") if names else []
         result["changed"] = len(changed)
         if scope:
             outside = [p for p in changed
@@ -403,22 +436,21 @@ def inspect(cwd, head, base=None, new_commit=False, scope=None, dirty_ok=False):
     return result
 
 
-def apply_worker(state, ledger, a, task, data, ids, result):
+def apply_worker(state, task, role, data, args):
     """Сверяет commit implementer/reviser и продвигает head запуска либо задачи."""
-    cwd = a.cwd or (task or {}).get("cwd") or run_cwd(state, ledger)
     prev = (task.get("head") or task.get("base")) if task is not None else state["head"]
     if not prev:
-        raise Fail(f"{a.task}: у задачи нет base")
+        raise Fail("у задачи нет base")
     blocked = bool(data.get("blocker"))
-    info = inspect(cwd, data["head"], prev, not blocked, a.scope or (task or {}).get("write_scope"), blocked)
+    info = inspect(args["cwd"], data["head"], prev, not blocked, args["scope"], blocked)
     if not info["ok"]:
         out(info)
         sys.exit(1)
-    result.update(head=info["head"], checks=len(data["checks"]), changed=info["changed"], ok=True)
+    result = dict(head=info["head"], checks=len(data["checks"]), changed=info["changed"], ok=True)
     if task is not None:
         task["head"] = info["head"]
-        if not blocked and task.get("state") == "RUNNING":
-            task["state"] = "READY_TO_INTEGRATE"
+        if task.get("state") in ("RUNNING", "READY_TO_INTEGRATE"):
+            task["state"] = "RUNNING" if blocked else "READY_TO_INTEGRATE"
         result["state"] = task.get("state")
     else:
         state["head"] = info["head"]
@@ -435,23 +467,27 @@ def apply_worker(state, ledger, a, task, data, ids, result):
         result["rejected"] = rejected
         if any(findings.get(i, {}).get("severity") in CRITICAL for i in rejected):
             result["stop"] = "critical_rejected"
-    if a.role == "reviser" and ids:
-        critical = any(findings.get(i, {}).get("severity") in CRITICAL for i in ids)
+    if role == "reviser" and args["ids"]:
+        critical = any(findings.get(i, {}).get("severity") in CRITICAL for i in args["ids"])
         kind = "critical_iterations" if critical else "minor_iterations"
         counters = state.setdefault("counters", {})
         counters[kind] = counters.get(kind, 0) + 1
+    return result
 
 
 def cmd_handoff(a):
     ledger = ledger_dir(a.ledger)
     data = read_json(a, a.role)
     ids = [i for i in (a.ids or "").split(",") if i]
-    args = {"task": a.task, "ids": ids}
     with locked(ledger):
         state = load(ledger)
         task = (state.get("tasks") or {}).get(a.task) if a.task else None
         if a.task and task is None:
             raise Fail(f"нет задачи {a.task}")
+        args = {"task": a.task, "ids": ids}
+        if a.role != "scout":
+            args.update(cwd=os.path.realpath(a.cwd or (task or {}).get("cwd") or run_cwd(state, ledger)),
+                        scope=a.scope or (task or {}).get("write_scope"))
         slot, key = (task, "handoff") if task is not None else (state, "scout" if a.role == "scout" else "worker")
         result = applied(ledger, slot.get(key), a.role, data, args)
         if result is None:
@@ -459,7 +495,7 @@ def cmd_handoff(a):
             if a.role == "scout":
                 state["notes"] = result["notes"] = sorted(set(state.get("notes", [])) | set(data["notes"]))
             else:
-                apply_worker(state, ledger, a, task, data, ids, result)
+                result = apply_worker(state, task, a.role, data, args)
             if data.get("blocker"):
                 result["blocker"] = data["blocker"]
             slot[key] = store(ledger, state, a.role, data, args, result)
@@ -475,7 +511,7 @@ def cmd_verify(a):
 
 
 def location_file(location):
-    return re.split(r"[:,;\s]", location.strip(), maxsplit=1)[0]
+    return re.sub(r":\d+(?::\d+)?$", "", location.strip())
 
 
 def number(fid):
@@ -488,8 +524,6 @@ def apply_review(state, axis, data, asked, full_spec):
         out({"axis": axis, "verdict": "BLOCKED_CONTEXT", "blocker": data.get("blocker"), "stop": "blocked_context"})
         sys.exit(1)
     head, findings = state["head"], state.setdefault("findings", {})
-    if not head.startswith(data["head"]):
-        raise Fail(f"HEAD reviewer {data['head'][:12]} != {head[:12]}: HUMAN_ATTENTION, coverage не обновлён")
     dispositions = {d["id"]: d for d in data.get("dispositions", [])}
     missing = [i for i in asked if i not in dispositions or i not in findings]
     if missing:
@@ -501,7 +535,8 @@ def apply_review(state, axis, data, asked, full_spec):
     for fid in asked:
         if dispositions[fid]["state"] == "FIXED":
             entry = findings.pop(fid)
-            state.setdefault("repaired", {}).setdefault(location_file(entry["location"]), []).append(
+            path = entry.get("file") or location_file(entry["location"])
+            state.setdefault("repaired", {}).setdefault(path, []).append(
                 {"id": fid, "fix": entry.get("fix", "")})
             fixed.append(fid)
         else:
@@ -514,7 +549,7 @@ def apply_review(state, axis, data, asked, full_spec):
         if item.get("scope") == "outside" and item["type"] != "wrong":
             severity = "MINOR"
         findings[fid] = dict(item, axis=axis, severity=severity)
-        files = re.findall(r"[\w./\\\-\[\]]+\.[A-Za-z]\w*", item["location"])
+        files = [item["file"]] if "file" in item else re.findall(r"[\w./\\\-\[\]]+\.[A-Za-z]\w*", item["location"])
         entry = {"id": fid, "severity": severity, "location": item["location"]}
         if files and all(DOCS.search(f) for f in files):
             entry["docs_only"] = True
@@ -524,10 +559,16 @@ def apply_review(state, axis, data, asked, full_spec):
     record.pop("skip", None)
     if full_spec:
         record["full_spec_reviewed_head"] = head
+    critical = sorted((i for i, f in findings.items() if f["severity"] in CRITICAL), key=number)
+    return {"axis": axis, "head": head, "fixed": fixed, "open": still_open, "new": new, "critical": critical,
+            "quality": quality(state)}
+
+
+def review_limits(state):
+    findings = state.get("findings", {})
     counters = state.get("counters", {})
     critical = sorted((i for i, f in findings.items() if f["severity"] in CRITICAL), key=number)
-    result = {"axis": axis, "head": head, "fixed": fixed, "open": still_open, "new": new, "critical": critical,
-              "quality": quality(state)}
+    result = {"critical": critical}
     if any(findings[i].get("no_progress", 0) >= LIMITS["no_progress"] for i in critical):
         result["stop"] = "no_progress"
     elif critical and counters.get("critical_iterations", 0) >= LIMITS["critical_iterations"]:
@@ -539,6 +580,9 @@ def apply_review(state, axis, data, asked, full_spec):
 
 def cmd_review(a):
     ledger = ledger_dir(a.ledger)
+    if a.triage:
+        out(review_limits(load(ledger)))
+        return
     if a.skip is not None:
         if not a.axis:
             raise Fail("--skip требует --axis")
@@ -556,9 +600,16 @@ def cmd_review(a):
     args = {"ids": asked, "full_spec": a.full_spec}
     with locked(ledger):
         state = load(ledger)
+        head = state["head"]
+        if data["verdict"] != "BLOCKED_CONTEXT" and not head.startswith(data["head"]):
+            raise Fail(f"HEAD reviewer {data['head'][:12]} != {head[:12]}: HUMAN_ATTENTION, coverage не обновлён")
         record = state.setdefault("axes", {}).setdefault(axis, {})
         result = applied(ledger, record.get("handoff"), a.role, data, args)
         if result is None:
+            if state.get("review_target") and data["verdict"] != "BLOCKED_CONTEXT":
+                expected_base = record.get("last_reviewed_head") or state["review_target"]
+                if data.get("base") != expected_base:
+                    raise Fail(f"base reviewer должен быть {expected_base}: coverage не обновлён")
             result = apply_review(state, axis, data, asked, a.full_spec)
             record["handoff"] = store(ledger, state, a.role, data, args, result)
             save(ledger, state)
@@ -571,33 +622,52 @@ def cmd_gate(a):
     with locked(ledger):
         state = load(ledger)
         head = state["head"]
+        cwd = run_cwd(state, ledger)
+        if data is None or data["verdict"] == "GREEN":
+            info = inspect(cwd, head)
+            if not info["ok"]:
+                out(info)
+                sys.exit(1)
         if a.not_applicable is not None:
             state["gate"] = {"head": head, "verdict": "NOT_APPLICABLE", "reason": a.not_applicable}
             result = {"head": head, "verdict": "NOT_APPLICABLE", "quality": quality(state)}
         elif a.reuse is not None:
-            green, cwd = state.get("green"), run_cwd(state, ledger)
+            green = state.get("green")
             if not green:
                 raise Fail("нет полного GREEN для reuse")
+            try:
+                with open(green["ref"], encoding="utf-8") as fh:
+                    evidence = json.load(fh)
+                check(evidence, ROLES["verifier"], "green")
+                if evidence["verdict"] != "GREEN" or evidence.get("failures") or not green["head"].startswith(evidence["head"]):
+                    raise Fail("нет успешного evidence для сохранённого SHA")
+                require_passed_checks(evidence)
+            except (OSError, ValueError, KeyError, Fail) as err:
+                raise Fail(f"сохранённый GREEN непригоден для reuse: {err}") from err
             same_tree = git(cwd, "rev-parse", green["head"] + "^{tree}") == git(cwd, "rev-parse", head + "^{tree}")
             if not same_tree and not a.reuse:
                 raise Fail(f"reuse GREEN {green['head'][:12]}: дерево отличается, нужен proof")
-            state["gate"] = {"head": head, "verdict": "GREEN", "reuse_of": green["head"]}
+            state["gate"] = {"head": head, "verdict": "GREEN", "reuse_of": green["head"], "validated": True}
             if a.reuse:
                 state["gate"]["proof"] = a.reuse
             result = {"head": head, "verdict": "GREEN", "reuse_of": green["head"], "quality": quality(state)}
         else:
-            result = applied(ledger, (state.get("gate") or {}).get("handoff"), "verifier", data, {})
+            if not head.startswith(data["head"]):
+                raise Fail(f"HEAD verifier {data['head'][:12]} != {head[:12]}: HUMAN_ATTENTION")
+            current = state.get("gate") or {}
+            cached = current.get("handoff") if data["verdict"] != "GREEN" or current.get("validated") else None
+            result = applied(ledger, cached, "verifier", data, {})
             if result is not None:
                 out(result)
                 return
-            if not head.startswith(data["head"]):
-                raise Fail(f"HEAD verifier {data['head'][:12]} != {head[:12]}: HUMAN_ATTENTION")
             counters = state.setdefault("counters", {})
             if data["verdict"] == "GREEN":
                 counters["consecutive_red"] = 0
             elif data["verdict"] == "RED":
                 counters["consecutive_red"] = counters.get("consecutive_red", 0) + 1
             state["gate"] = {"head": head, "verdict": data["verdict"]}
+            if data["verdict"] == "GREEN":
+                state["gate"]["validated"] = True
             result = {"head": head, "verdict": data["verdict"], "consecutive_red": counters.get("consecutive_red", 0),
                       "quality": quality(state)}
             if data.get("failures"):
@@ -704,15 +774,18 @@ def cmd_integrate(a):
 def cmd_cleanup(a):
     ledger = ledger_dir(a.ledger)
     state = load(ledger)
-    untouched = state.get("head") == state.get("base") and not os.path.exists(os.path.join(ledger, "handoffs"))
-    if state.get("status") != "COMPLETED" and not untouched:
+    status = state.get("status")
+    untouched = (status == "RUNNING" and state.get("head") == state.get("base")
+                 and not any(state.get(key) for key in ("candidate_intent", "integrating", "tasks", "worker"))
+                 and not os.path.exists(os.path.join(ledger, "handoffs")))
+    if status != "COMPLETED" and not untouched:
         raise Fail(f"cleanup только после COMPLETED либо для нетронутого запуска, сейчас {state.get('status')}")
     shutil.rmtree(ledger)
     out({"removed": ledger})
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="rr")
+    parser = argparse.ArgumentParser(prog="ledger.py")
     sub = parser.add_subparsers(dest="command", required=True)
 
     def add(name, func, ledger=True):
@@ -742,6 +815,7 @@ def main(argv=None):
     p.add_argument("--full-spec", action="store_true")
     p.add_argument("--axis", choices=sorted(AXIS.values()))
     p.add_argument("--skip")
+    p.add_argument("--triage", action="store_true")
     p = add("gate", cmd_gate)
     p.add_argument("--reuse", nargs="?", const="")
     p.add_argument("--not-applicable")
@@ -771,7 +845,7 @@ def main(argv=None):
     try:
         args.func(args)
     except (Fail, OSError) as err:
-        print(f"rr: {err}", file=sys.stderr)
+        print(f"{parser.prog}: {err}", file=sys.stderr)
         sys.exit(1)
 
 

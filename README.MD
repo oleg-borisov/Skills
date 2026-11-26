@@ -29,7 +29,7 @@ batch: [ADR-0006](docs/adr/0006-fast-tier-and-bounded-review.md).
 На обычном пути запуск не останавливается на человеке: вызов навыка — согласие
 на merge при quality GREEN, план показывается без подтверждения:
 [ADR-0007](docs/adr/0007-run-without-human-stops.md). Механику ledger, handoff,
-gate и интеграции выполняет `rr.py`; сверка хешей, снимок правок и захват
+gate и интеграции выполняет `ledger.py`; сверка хешей, снимок правок и захват
 запуска убраны: [ADR-0008](docs/adr/0008-no-hash-snapshot-claim.md). Цена
 запуска до и после: [эталонные сценарии](docs/validation/run-cost.md).
 

@@ -79,7 +79,7 @@ def render(host, role, metadata, contract, model):
             "name": role, "description": description,
             **({"model": model} if model != "inherit" else {}),
             "model_reasoning_effort": effort,
-            "sandbox_mode": "read-only" if read_only else "workspace-write",
+            "sandbox_mode": "read-only" if read_only and role != "verifier" else "workspace-write",
             "developer_instructions": shim,
         }
         return "".join(f"{key} = {quote(value)}\n" for key, value in fields.items())

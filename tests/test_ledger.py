@@ -10,9 +10,9 @@ import unittest
 
 SCRIPTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills", "spec-delivery", "scripts")
 sys.path.insert(0, SCRIPTS)
-import rr  # noqa: E402
+import ledger  # noqa: E402
 
-RR_PY = os.path.join(SCRIPTS, "rr.py")
+LEDGER_PY = os.path.join(SCRIPTS, "ledger.py")
 
 
 def run(*argv, stdin=""):
@@ -22,7 +22,7 @@ def run(*argv, stdin=""):
     code = 0
     try:
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            rr.main(list(argv))
+            ledger.main(list(argv))
     except SystemExit as exit_:
         code = exit_.code
     finally:
@@ -160,6 +160,36 @@ class RrTest(unittest.TestCase):
         _, result = self.rr("get")
         self.assertEqual((result["findings"], result["quality"]), (0, "UNVERIFIED"))
 
+    def test_get_projects_findings_and_literal_repaired_paths(self):
+        self.rr("set", 'findings={"F1":{"fix":"one"},"F2":{"fix":"two"}}',
+                'repaired={"src/App.kt":[{"id":"F3","fix":"three"}],"src/Other.kt":[{"id":"F4"}]}')
+        code, result = self.rr("get", "findings.F1", "repaired.src/App.kt", "repaired.src/Missing.kt")
+        self.assertEqual(code, 0, result)
+        self.assertEqual(result, {
+            "findings.F1": {"fix": "one"},
+            "repaired.src/App.kt": [{"id": "F3", "fix": "three"}],
+            "repaired.src/Missing.kt": None,
+        })
+
+    def test_repaired_uses_explicit_file_or_legacy_position_suffix(self):
+        first = "src/With Space.kt"
+        second = "src/Another Space.kt"
+        self.review({"head": self.base, "verdict": "FINDINGS", "findings": [
+            self.finding(location=f"{first}:14:3"),
+            self.finding(location="criterion 2", file=second),
+        ]})
+        head = self.commit("b.txt", "repair")
+        self.worker(head, role="reviser")
+        code, result = self.review({"head": head, "verdict": "APPROVE", "dispositions": [
+            {"id": fid, "state": "FIXED", "evidence": "e"} for fid in ("F1", "F2")
+        ]}, "--ids", "F1,F2")
+        self.assertEqual(code, 0, result)
+        _, projection = self.rr("get", f"repaired.{first}", f"repaired.{second}")
+        self.assertEqual(projection, {
+            f"repaired.{first}": [{"id": "F1", "fix": "f"}],
+            f"repaired.{second}": [{"id": "F2", "fix": "f"}],
+        })
+
     def test_set_keeps_sha_like_and_number_like_text(self):
         values = {"a": "12e4567", "b": "0e12345", "c": "1234567", "d": "1.10", "n": "2", "t": "true",
                   "o": '{"k":[1]}', "s": '"7"'}
@@ -283,12 +313,84 @@ class RrTest(unittest.TestCase):
         self.assertEqual((state["tasks"]["T1"]["head"], state["tasks"]["T1"]["state"], state["head"]),
                          (head, "READY_TO_INTEGRATE", self.base))
 
+    def test_handoff_replay_rejects_changed_scope_or_cwd(self):
+        head = self.commit("src/a.txt", "x")
+        self.assertEqual(self.worker(head, "--scope", "src")[0], 0)
+        self.assertEqual(self.worker(head, "--scope", "src")[0], 0)
+        code, error = self.worker(head, "--scope", "other")
+        self.assertEqual(code, 1, error)
+        code, error = self.worker(head, "--scope", "src", "--cwd", os.path.dirname(self.repo))
+        self.assertEqual(code, 1, error)
+
+    def test_legacy_handoff_replay_preserves_applied_checkpoint(self):
+        head = self.commit("src/a.txt", "x")
+        self.assertEqual(self.worker(head)[0], 0)
+        before = self.state()
+        path = os.path.join(self.ledger, "handoffs", before["worker"] + ".json")
+        with open(path, encoding="utf-8") as file:
+            evidence = json.load(file)
+        evidence["args"] = {"task": None, "ids": []}
+        with open(path, "w", encoding="utf-8") as file:
+            json.dump(evidence, file)
+        code, error = self.worker(head)
+        self.assertEqual(code, 1, error)
+        self.assertIn("без cwd/scope", error)
+        self.assertEqual(self.state(), before)
+
     def test_handoff_scout_records_notes(self):
         code, result = self.rr("handoff", "--role", "scout", stdin=json.dumps({"notes": ["n/a.md"]}))
         self.assertEqual(code, 0, result)
         self.assertEqual((result["notes"], self.state()["notes"]), (["n/a.md"], ["n/a.md"]))
 
     # review
+
+    def test_review_candidate_excludes_target_commits_after_rebase_and_merge(self):
+        self.git("branch", "target")
+        self.git("checkout", "-qb", "single")
+        own = self.commit("own.txt", "own change")
+        self.git("branch", "integration", own)
+        self.git("checkout", "-q", "target")
+        target = self.commit("target.txt", "unrelated target change")
+        code, error = self.rr("set", f"head={own}", f"review_target={target}")
+        self.assertEqual(code, 1, error)
+        self.assertNotIn("review_target", self.state())
+
+        for branch, operation in (("single", "rebase"), ("integration", "merge")):
+            with self.subTest(branch=branch):
+                self.git("checkout", "-q", branch)
+                self.git(operation, target)
+                head = self.git("rev-parse", "HEAD")
+                code, result = self.rr("set", f"head={head}", f"review_target={target}")
+                self.assertEqual(code, 0, result)
+                self.assertEqual(self.git("diff", "--name-only", target, head), "own.txt")
+
+    def test_repin_invalidates_coverage_even_if_head_does_not_change(self):
+        target = self.commit("upstream.txt", "upstream")
+        head = self.commit("own.txt", "own")
+        code, result = self.rr("set", f"head={head}", f"review_target={self.base}")
+        self.assertEqual(code, 0, result)
+        previous = {"head": head, "base": self.base, "verdict": "APPROVE"}
+        for role in ("spec-reviewer", "standards-reviewer"):
+            code, result = self.review(previous, role=role)
+            self.assertEqual(code, 0, result)
+        self.gate({"head": head, "verdict": "GREEN", "checks": [{"cmd": "t", "result": "ok"}]})
+        self.assertEqual(self.quality(), "GREEN")
+
+        code, result = self.rr("set", f"review_target={target}")
+        self.assertEqual(code, 0, result)
+        self.assertEqual(self.quality(), "UNVERIFIED")
+        code, error = self.review(previous)
+        self.assertEqual(code, 1, error)
+        self.assertIn(target, error)
+        self.assertEqual(self.state()["axes"]["spec"], {})
+        current = dict(previous, base=target)
+        self.assertEqual(self.review(current)[0], 0)
+        self.assertEqual(self.review(current)[0], 0)
+
+        repaired = self.commit("own.txt", "repair")
+        self.assertEqual(self.worker(repaired, role="reviser")[0], 0)
+        self.assertEqual(self.review(dict(current, head=repaired))[0], 1)
+        self.assertEqual(self.review(dict(current, head=repaired, base=head))[0], 0)
 
     def test_review_rejects_bad_and_inconsistent_verdicts(self):
         code, error = self.review({"head": self.base, "verdict": "OPEN"})
@@ -385,13 +487,15 @@ class RrTest(unittest.TestCase):
             self.worker(head, "--ids", "F1", role="reviser")
             _, result = self.review({"head": head, "verdict": "FINDINGS", "dispositions": [
                 {"id": "F1", "state": "OPEN", "evidence": f"e{round_}"}]}, "--ids", "F1")
-        self.assertEqual(result["stop"], "no_progress")
+        self.assertNotIn("stop", result)
+        self.assertEqual(self.rr("review", "--triage")[1]["stop"], "no_progress")
         self.rr("set", "counters.critical_iterations=4", "findings.F1.no_progress=0")
         head = self.commit("r9.txt", "x")
         self.worker(head, role="reviser")
         _, result = self.review({"head": head, "verdict": "FINDINGS", "dispositions": [
             {"id": "F1", "state": "OPEN", "evidence": "e9"}]}, "--ids", "F1")
-        self.assertEqual(result["stop"], "critical_limit")
+        self.assertNotIn("stop", result)
+        self.assertEqual(self.rr("review", "--triage")[1]["stop"], "critical_limit")
 
     def test_review_reports_minor_limit(self):
         self.review({"head": self.base, "verdict": "FINDINGS", "findings": [self.standard("judgement")]},
@@ -401,8 +505,24 @@ class RrTest(unittest.TestCase):
         self.worker(head, role="reviser")
         _, result = self.review({"head": head, "verdict": "FINDINGS", "dispositions": [
             {"id": "F1", "state": "OPEN", "evidence": "e"}]}, "--ids", "F1", role="standards-reviewer")
-        self.assertTrue(result["minor_limit"])
-        self.assertNotIn("stop", result)
+        self.assertNotIn("minor_limit", result)
+        _, triage = self.rr("review", "--triage")
+        self.assertTrue(triage["minor_limit"])
+        self.assertNotIn("stop", triage)
+
+    def test_review_limits_wait_for_both_dispositions(self):
+        self.review({"head": self.base, "verdict": "FINDINGS", "findings": [self.finding()]})
+        self.review({"head": self.base, "verdict": "FINDINGS", "findings": [self.standard()]},
+                    role="standards-reviewer")
+        self.rr("set", "counters.critical_iterations=3")
+        head = self.commit("b.txt", "repair both")
+        self.worker(head, "--ids", "F1,F2", role="reviser")
+        for role, fid in (("spec-reviewer", "F1"), ("standards-reviewer", "F2")):
+            code, result = self.review({"head": head, "verdict": "APPROVE", "dispositions": [
+                {"id": fid, "state": "FIXED", "evidence": "e"}]}, "--ids", fid, role=role)
+            self.assertEqual(code, 0, result)
+            self.assertNotIn("stop", result)
+        self.assertEqual(self.rr("review", "--triage"), (0, {"critical": []}))
 
     def test_review_skip_marks_axis_covered_for_current_head_only(self):
         code, result = self.rr("review", "--axis", "standards", "--skip", "правил нет")
@@ -417,7 +537,7 @@ class RrTest(unittest.TestCase):
     def test_concurrent_reviews_keep_both_axes(self):
         spec = {"head": self.base, "verdict": "FINDINGS", "findings": [self.finding()]}
         standards = {"head": self.base, "verdict": "FINDINGS", "findings": [self.standard()]}
-        procs = [subprocess.Popen([sys.executable, RR_PY, "review", "--ledger", self.ledger, "--role", role],
+        procs = [subprocess.Popen([sys.executable, LEDGER_PY, "review", "--ledger", self.ledger, "--role", role],
                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                   text=True, encoding="utf-8")
                  for role in ("spec-reviewer", "standards-reviewer")]
@@ -442,6 +562,13 @@ class RrTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertNotIn("gate", self.state())
 
+    def test_gate_green_requires_all_checks_to_succeed(self):
+        for checks in ([], [{"cmd": "build", "result": "FAIL"}]):
+            with self.subTest(checks=checks):
+                code, error = self.gate({"head": self.base, "verdict": "GREEN", "checks": checks})
+                self.assertEqual(code, 1, error)
+        self.assertNotIn("gate", self.state())
+
     def test_gate_green_gives_quality_only_for_covered_current_head(self):
         head = self.commit("b.txt", "two")
         self.worker(head)
@@ -457,9 +584,86 @@ class RrTest(unittest.TestCase):
 
     def test_gate_rejects_foreign_head(self):
         head = self.commit("b.txt", "two")
-        code, error = self.gate({"head": head, "verdict": "GREEN", "checks": []})
+        self.git("checkout", "-q", "--detach", self.base)
+        code, error = self.gate({"head": head, "verdict": "GREEN", "checks": [{"cmd": "t", "result": "ok"}]})
         self.assertEqual(code, 1)
         self.assertIn("HUMAN_ATTENTION", error)
+
+    def test_gate_rejects_stale_or_dirty_worktree(self):
+        report = {"head": self.base, "verdict": "GREEN", "checks": [{"cmd": "t", "result": "ok"}]}
+        with open(os.path.join(self.repo, "a.txt"), "a", encoding="utf-8") as file:
+            file.write("dirty")
+        code, result = self.gate(report)
+        self.assertEqual(code, 1, result)
+        self.assertTrue(any("dirty" in problem for problem in result["problems"]))
+        head = self.commit("b.txt", "two")
+        code, result = self.gate(report)
+        self.assertEqual(code, 1, result)
+        self.assertEqual(result["head"], head)
+        self.assertNotIn("gate", self.state())
+
+    def test_gate_stores_blocked_diagnostics_on_dirty_worktree(self):
+        with open(os.path.join(self.repo, "a.txt"), "a", encoding="utf-8") as file:
+            file.write("dirty")
+        failures = [{"location": "a.txt", "evidence": "dirty input"}]
+        code, result = self.gate({"head": self.base, "verdict": "BLOCKED", "checks": [], "failures": failures})
+        self.assertEqual(code, 0, result)
+        self.assertEqual((result["verdict"], result["quality"]), ("BLOCKED", "UNVERIFIED"))
+        with open(result["ref"], encoding="utf-8") as file:
+            self.assertEqual(json.load(file)["failures"], failures)
+
+    def test_gate_rejects_cached_green_after_ledger_head_advances(self):
+        self.approve_all(self.base)
+        report = {"head": self.base, "verdict": "GREEN", "checks": [{"cmd": "t", "result": "ok"}]}
+        self.assertEqual(self.gate(report)[1]["quality"], "GREEN")
+        head = self.commit("b.txt", "new head")
+        self.assertEqual(self.worker(head)[0], 0)
+        code, error = self.gate(report)
+        self.assertEqual(code, 1, error)
+        self.assertIn("HEAD verifier", error)
+        self.assertEqual(self.review({"head": self.base, "verdict": "APPROVE"})[0], 1)
+        self.assertEqual(self.quality(), "UNVERIFIED")
+
+    def test_gate_revalidates_legacy_green_before_reuse(self):
+        self.approve_all(self.base)
+        code, result = self.gate({"head": self.base, "verdict": "GREEN", "checks": [{"cmd": "t", "result": "ok"}]})
+        self.assertEqual(code, 0, result)
+        self.rr("set", "--delete", "gate.validated")
+        self.assertEqual(self.quality(), "UNVERIFIED")
+        self.assertEqual(self.rr("gate", "--reuse")[0], 0)
+        self.assertEqual(self.quality(), "GREEN")
+        self.rr("set", "--delete", "gate.validated")
+
+        with open(result["ref"], encoding="utf-8") as file:
+            evidence = json.load(file)
+        evidence["checks"][0]["result"] = "FAIL"
+        with open(result["ref"], "w", encoding="utf-8") as file:
+            json.dump(evidence, file)
+        code, error = self.rr("gate", "--reuse")
+        self.assertEqual(code, 1, error)
+        self.assertEqual(self.quality(), "UNVERIFIED")
+
+    def test_gate_uses_queue_candidate_checkout_without_moving_pr_source(self):
+        source = self.commit("source.txt", "own")
+        queue_tree = os.path.join(os.path.dirname(self.repo), "queue")
+        self.git("worktree", "add", "-q", "-b", "queue", queue_tree, source)
+        candidate = self.commit("queue.txt", "candidate", cwd=queue_tree)
+        code, result = self.rr("set", f"candidate_cwd={queue_tree}", f"head={candidate}",
+                               f"review_target={self.base}", f"queue.source_head={source}")
+        self.assertEqual(code, 0, result)
+        code, result = self.gate({"head": candidate, "verdict": "GREEN",
+                                  "checks": [{"cmd": "t", "result": "ok"}]})
+        self.assertEqual(code, 0, result)
+        self.assertEqual(self.git("rev-parse", "HEAD"), source)
+        self.assertEqual(self.state()["queue"]["source_head"], source)
+        self.assertEqual(self.review({"base": self.base, "head": candidate, "verdict": "APPROVE"})[0], 0)
+
+        self.git("checkout", "-q", "--detach", source, cwd=queue_tree)
+        replacement = self.commit("queue.txt", "replacement", cwd=queue_tree)
+        code, result = self.rr("set", f"head={replacement}")
+        self.assertEqual(code, 0, result)
+        self.assertEqual(self.state()["axes"]["spec"], {})
+        self.assertEqual(self.review({"base": self.base, "head": replacement, "verdict": "APPROVE"})[0], 0)
 
     def test_gate_counts_consecutive_red_and_retry_is_idempotent(self):
         def red(n):
@@ -472,14 +676,14 @@ class RrTest(unittest.TestCase):
         self.gate(red(2))
         _, result = self.gate(red(3))
         self.assertEqual((result["consecutive_red"], result["stop"]), (3, "red_limit"))
-        _, result = self.gate({"head": self.base, "verdict": "GREEN", "checks": []})
+        _, result = self.gate({"head": self.base, "verdict": "GREEN", "checks": [{"cmd": "t", "result": "ok"}]})
         self.assertEqual(result["consecutive_red"], 0)
 
     def test_gate_reuse_needs_proof_unless_tree_is_same(self):
         self.approve_all(self.base)
         code, _ = self.rr("gate", "--reuse")
         self.assertEqual(code, 1)
-        self.gate({"head": self.base, "verdict": "GREEN", "checks": []})
+        self.gate({"head": self.base, "verdict": "GREEN", "checks": [{"cmd": "t", "result": "ok"}]})
         self.git("commit", "-q", "--allow-empty", "-m", "same tree")
         same = self.git("rev-parse", "HEAD")
         self.rr("set", f"head={same}")
@@ -498,7 +702,7 @@ class RrTest(unittest.TestCase):
     def test_quality_with_tasks_needs_all_reviewed_and_full_spec(self):
         self.rr("set", 'tasks.T1={"state":"INTEGRATED"}')
         self.approve_all(self.base)
-        self.gate({"head": self.base, "verdict": "GREEN", "checks": []})
+        self.gate({"head": self.base, "verdict": "GREEN", "checks": [{"cmd": "t", "result": "ok"}]})
         self.assertEqual(self.quality(), "UNVERIFIED")
         self.rr("set", "tasks.T1.state=REVIEWED")
         self.assertEqual(self.quality(), "UNVERIFIED")
@@ -532,6 +736,19 @@ class RrTest(unittest.TestCase):
         code, result = run("verify", "--cwd", self.repo, "--head", head, "--base", self.base, "--new-commit",
                            "--scope", "src")
         self.assertEqual((code, result["ok"], result["changed"]), (0, True, 1))
+
+    def test_verify_preserves_unicode_paths_and_checks_both_rename_endpoints(self):
+        path = "src/тест.txt"
+        head = self.commit(path, "x")
+        args = ("verify", "--cwd", self.repo, "--scope", "src")
+        self.assertEqual(run(*args, "--head", head, "--base", self.base)[0], 0)
+        self.git("config", "diff.renames", "true")
+        self.git("mv", "a.txt", "src/moved.txt")
+        self.git("commit", "-qm", "rename")
+        moved = self.git("rev-parse", "HEAD")
+        code, result = run(*args, "--head", moved, "--base", head)
+        self.assertEqual(code, 1, result)
+        self.assertEqual((result["changed"], result["outside_scope"]), (2, ["a.txt"]))
 
     def test_verify_reports_every_problem(self):
         head = self.commit("other/c.txt", "three")
@@ -609,12 +826,37 @@ class RrTest(unittest.TestCase):
         self.assertEqual((result["head"], result["state"]), (merged, "INTEGRATED"))
         self.assertEqual(self.git("rev-parse", "HEAD", cwd=integration), merged)
 
+    def test_blocked_conflict_repair_revokes_ready_to_integrate(self):
+        integration = self.parallel()
+        tree = self.start_task("T1", self.base)
+        head = self.commit("a.txt", "task", cwd=tree)
+        self.assertEqual(self.worker(head, "--task", "T1", "--scope", "*")[0], 0)
+        tip = self.commit("a.txt", "integration", cwd=integration)
+        self.rr("set", f"head={tip}")
+        self.assertEqual(self.rr("integrate", "--task", "T1")[0], 1)
+        self.assertEqual(self.state()["tasks"]["T1"]["state"], "READY_TO_INTEGRATE")
+
+        partial = self.commit("t1/partial.txt", "incomplete", cwd=tree)
+        code, result = self.worker(partial, "--task", "T1", "--scope", "*", blocker={"reason": "unfinished"})
+        self.assertEqual(code, 0, result)
+        self.assertEqual(result["state"], "RUNNING")
+        self.assertEqual(self.rr("integrate", "--task", "T1")[0], 1)
+        self.assertEqual(self.git("rev-parse", "HEAD", cwd=integration), tip)
+
     # cleanup
 
     def test_cleanup_removes_untouched_run(self):
         code, result = self.rr("cleanup")
         self.assertEqual(code, 0, result)
         self.assertFalse(os.path.exists(self.ledger))
+
+    def test_cleanup_preserves_stopped_or_pending_run(self):
+        self.rr("set", "status=STOPPED_BY_HUMAN")
+        self.assertEqual(self.rr("cleanup")[0], 1)
+        self.assertEqual(self.state()["status"], "STOPPED_BY_HUMAN")
+        self.rr("set", "status=RUNNING", 'candidate_intent={"before":"one","target":"two"}')
+        self.assertEqual(self.rr("cleanup")[0], 1)
+        self.assertIn("candidate_intent", self.state())
 
     def test_cleanup_only_after_completed(self):
         self.worker(self.commit("b.txt", "two"))

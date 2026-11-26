@@ -42,6 +42,7 @@ class RenderAgentsTest(unittest.TestCase):
         self.assertNotIn("## Output", instructions)
         self.assertIn('model = "custom-model"', (stage / "reviser.toml").read_text("utf-8"))
         self.assertIn('sandbox_mode = "workspace-write"', (stage / "scout.toml").read_text("utf-8"))
+        self.assertIn('sandbox_mode = "workspace-write"', (stage / "verifier.toml").read_text("utf-8"))
 
     def test_existing_models_survive_render_and_role_paths_are_normalized(self):
         with tempfile.TemporaryDirectory() as directory:

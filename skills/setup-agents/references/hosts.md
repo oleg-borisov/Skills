@@ -4,7 +4,7 @@
 
 | Хост | Windows | macOS | Формат и ограничения |
 | --- | --- | --- | --- |
-| Codex | `~/.codex/agents` | `~/.codex/agents` | TOML, `model`, `model_reasoning_effort`, `sandbox_mode` read-only для verifier и reviewers, workspace-write для остальных |
+| Codex | `~/.codex/agents` | `~/.codex/agents` | TOML, `model`, `model_reasoning_effort`, `sandbox_mode` read-only для reviewers, workspace-write для остальных. Verifier пишет логи и build outputs, исходники защищает контракт роли. |
 | Claude Code | `~/.claude/agents` | `~/.claude/agents` | Markdown, `model`, `effort`, allowlist Read/Grep/Glob/Bash для read-only ролей, запрет Agent у остальных |
 | OpenCode | `~/.config/opencode/agents` | `~/.config/opencode/agents` | Markdown, `mode: subagent`, опциональный `model`, разрешён bash, `permission.edit` по роли, `task: deny` |
 | Devin | `%APPDATA%/devin/agents` | `~/.config/devin/agents` | Markdown, опциональный `model`, `allowed-tools: read, grep, glob, exec` для read-only ролей, вложенность ограничивает хост |
