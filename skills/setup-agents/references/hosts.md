@@ -14,7 +14,7 @@
 | Mistral Vibe | `~/.vibe/agents` | `~/.vibe/agents` | TOML, `agent_type = "subagent"`, опциональный `active_model`, запрет `agents_spawn`, для read-only ролей запрет `write_file` и `edit` |
 | Antigravity | `~/.gemini/config/plugins/serenity-agents/agents` | `~/.gemini/config/plugins/serenity-agents/agents` | Markdown, `subagent: true`, `mainAgent: false`, `model` принимает `inherit`, `pro`, `flash`. Для read-only ролей `view_file`, `grep_search`, `run_command` |
 
-Allowlist файловых инструментов и поле sandbox зависят от версии хоста. Shell доступен для проверок. Ограничения контракта действуют на всех хостах.
+Allowlist файловых инструментов и поле sandbox зависят от версии хоста. В Cursor `readonly: true` может блокировать shell целиком. Контроллер передаёт reviewers [готовые файлы](../../spec-delivery/references/review.md#review). Ограничения контракта действуют на всех хостах.
 
 ## Особенности установки
 

@@ -13,11 +13,17 @@
 
 ## Review
 
-Первое ревью каждой оси на зафиксированной цели: `base_sha = review_target`, patch `git diff <base_sha> <head_sha>`. После repair на той же цели: `base_sha = axes.<ось>.last_reviewed_head` либо `review_target`, если ось ещё не проверялась. Так patch исключает коммиты цели, включая пришедшие при rebase/merge. При смене цели заново проверь весь собственный patch (для графа Spec снова `full-spec`) и запроси dispositions оставшихся OPEN IDs. Код из цели разрешено читать как контекст для оценки кандидата. Standards учитывает актуальные применимые правила; если цель меняла инструкции, уточни их пути для собственного patch.
+При смене цели заново проверь весь собственный patch (для графа Spec снова `full-spec`) и запроси dispositions оставшихся OPEN IDs. Код из цели разрешено читать как контекст для оценки кандидата. Standards учитывает актуальные применимые правила; если цель меняла инструкции, уточни их пути для собственного patch.
 
 Spec обязателен для требований; Standards NOT_APPLICABLE (`ledger.py review --axis standards --skip <reason>`) лишь при доказанном отсутствии правил либо полном покрытии уже успешными automated checks нужного scope. Будущий gate/tests-only не освобождает от Standards.
 
-Две нужные оси — параллельно на одном HEAD. Spec получает spec_refs/review_mode, Standards — standards_files. Передай обеим осям `review_target` и `base_sha`; для dispositions — путь CLI, ledger_dir и IDs своей оси по протоколу. Initial: criteria/общие контракты; delta: затронутые criteria/прямые зависимости; full-spec: вся spec, включая завершённые задачи.
+Один `ledger.py review --ledger <dir> --prepare` готовит обе оси. Для одной оси добавь `--axis spec|standards`. CLI один раз сверяет фактический HEAD, берёт base каждой оси из её последнего coverage или `review_target` и выгружает один diff на каждый уникальный диапазон. Для OPEN IDs формирует выборку своей оси. Ошибка подготовки → HUMAN_ATTENTION.
+
+Передай каждой роли её `inputs.<ось>` из ответа. Spec также получает spec_refs/review_mode, Standards — standards_files. Initial: criteria/общие контракты; delta: затронутые criteria/прямые зависимости; full-spec: вся spec, включая завершённые задачи. Две нужные оси запускай параллельно на одном HEAD.
+
+Если требуется `--file` для передачи результата CLI, используй возвращённый `artifacts_dir`. После приёма результатов и выхода всех использующих эти файлы reviewers удали этот временный каталог. При прерывании он восстанавливается через `--prepare` после сверки живых исполнителей.
+
+### Приём результатов
 
 JSON каждого reviewer — один `ledger.py review` с `--ids` переданных ему IDs. Отказ CLI (чужой HEAD, BLOCKED_CONTEXT, нет explicit FIXED|OPEN заданных IDs) → HUMAN_ATTENTION без coverage. Severity назначает CLI: wrong → BLOCKER; missing/partial/hard → MAJOR; judgement и delta `scope: outside`, кроме wrong → MINOR. Finding с пометкой docs_only понижай до MINOR одним `ledger.py finding severity <IDs> MINOR`, если документ не назван criterion spec и не является agent instructions/executable example/config. Дубль OPEN-записи той же оси закрывай `ledger.py finding close <ID> "дубль <ID>"`. После приёма всех ожидаемых результатов раунда и этих правок severity/дублей, если остаются OPEN findings, получи лимиты через `ledger.py review --ledger <dir> --triage`. После repair Spec delta нужен всегда; Standards delta — только при OPEN IDs оси, иначе непокрытый диапазон Standards закрывает одно покрывающее Standards review финального HEAD перед Verify. Full-spec (`--full-spec`) фиксирует full_spec_reviewed_head; последующие delta оценивают влияние на всё покрытие, неясность → full-spec.
 

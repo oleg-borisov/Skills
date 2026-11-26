@@ -105,7 +105,7 @@ def render(host, role, metadata, contract, model):
         if read_only:
             lines += ["tools:", "  - view_file", "  - grep_search", "  - run_command"]
     elif host == "cursor":
-        # readonly запрещает правки и state-changing shell; verifier пишет логи/build outputs.
+        # Cursor может блокировать shell у reviewers целиком; controller передаёт им patch.
         if read_only and role != "verifier":
             lines.append("readonly: true")
     elif host == "opencode":

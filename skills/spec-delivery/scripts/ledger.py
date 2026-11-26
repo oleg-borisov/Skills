@@ -390,12 +390,12 @@ def cmd_set(a):
                 node.pop(leaf, None)
         head, target = state["head"], state.get("review_target")
         reset_review = target != previous_target
-        if target and (reset_review or head != previous_head):
+        if target and head != previous_head and not reset_review:
             cwd = run_cwd(state, ledger)
-            if git(cwd, "merge-base", "--is-ancestor", target, head, ok=(0, 1))[0]:
-                raise Fail("review_target должен быть предком HEAD кандидата")
-            if not reset_review:
-                reset_review = git(cwd, "merge-base", "--is-ancestor", previous_head, head, ok=(0, 1))[0] != 0
+            reset_review = git(cwd, "merge-base", "--is-ancestor", previous_head, head, ok=(0, 1))[0] != 0
+        if target and reset_review and git(run_cwd(state, ledger), "merge-base", "--is-ancestor", target, head,
+                                            ok=(0, 1))[0]:
+            raise Fail("review_target должен быть предком HEAD кандидата")
         if reset_review:
             state["axes"] = {"spec": {}, "standards": {}}
         if state.get("status") == "COMPLETED" and before != "COMPLETED" and quality(state) != "GREEN":
@@ -578,8 +578,51 @@ def review_limits(state):
     return result
 
 
+def review_base(state, axis):
+    return state.get("axes", {}).get(axis, {}).get("last_reviewed_head") or state.get("review_target")
+
+
+def prepare_review(ledger, axis):
+    state = load(ledger)
+    head, target = state["head"], state.get("review_target")
+    if not target:
+        raise Fail("сначала зафиксируй review_target")
+    cwd = run_cwd(state, ledger)
+    _, actual = git(cwd, "rev-parse", "HEAD")
+    if actual != head:
+        raise Fail(f"HEAD checkout {actual[:12]} != {head[:12]}: HUMAN_ATTENTION")
+
+    folder = tempfile.mkdtemp(dir=ledger, prefix="review-")
+    patches, inputs = {}, {}
+    try:
+        for current in (axis,) if axis else AXIS.values():
+            base = review_base(state, current)
+            if base not in patches:
+                path = os.path.join(folder, f"patch-{len(patches) + 1}.diff")
+                git(cwd, "diff", "--no-ext-diff", "--no-textconv", f"--output={path}", base, head)
+                patches[base] = path
+            findings = {fid: entry for fid, entry in state.get("findings", {}).items() if entry["axis"] == current}
+            item = {"review_target": target, "base_sha": base, "head_sha": head, "diff_path": patches[base],
+                    "finding_ids": sorted(findings, key=number)}
+            if findings:
+                item["findings_path"] = os.path.join(folder, f"{current}-findings.json")
+                with open(item["findings_path"], "w", encoding="utf-8") as fh:
+                    json.dump({f"findings.{fid}": entry for fid, entry in findings.items()}, fh,
+                              ensure_ascii=False, separators=(",", ":"))
+            inputs[current] = item
+    except (Fail, OSError):
+        shutil.rmtree(folder)
+        raise
+    return {"artifacts_dir": folder, "inputs": inputs}
+
+
 def cmd_review(a):
     ledger = ledger_dir(a.ledger)
+    if a.prepare:
+        if a.role or a.ids or a.full_spec or a.file or a.triage or a.skip is not None:
+            raise Fail("review --prepare принимает только --ledger и необязательный --axis")
+        out(prepare_review(ledger, a.axis))
+        return
     if a.triage:
         out(review_limits(load(ledger)))
         return
@@ -607,7 +650,7 @@ def cmd_review(a):
         result = applied(ledger, record.get("handoff"), a.role, data, args)
         if result is None:
             if state.get("review_target") and data["verdict"] != "BLOCKED_CONTEXT":
-                expected_base = record.get("last_reviewed_head") or state["review_target"]
+                expected_base = review_base(state, axis)
                 if data.get("base") != expected_base:
                     raise Fail(f"base reviewer должен быть {expected_base}: coverage не обновлён")
             result = apply_review(state, axis, data, asked, a.full_spec)
@@ -811,6 +854,7 @@ def main(argv=None):
     p.add_argument("--cwd")
     p.add_argument("--scope", action="append")
     p = add("review", cmd_review)
+    p.add_argument("--prepare", action="store_true")
     p.add_argument("--role", choices=sorted(AXIS))
     p.add_argument("--full-spec", action="store_true")
     p.add_argument("--axis", choices=sorted(AXIS.values()))

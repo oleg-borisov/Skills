@@ -90,6 +90,57 @@ class RrTest(unittest.TestCase):
             code, result = self.review({"head": head, "verdict": "APPROVE"}, role=role)
             self.assertEqual(code, 0, result)
 
+    def test_prepare_review_shares_patch_and_keeps_state_unchanged(self):
+        head = self.commit("a.txt", "two")
+        self.assertEqual(self.rr("set", f"head={head}", f"review_target={self.base}")[0], 0)
+        before = self.state()
+
+        code, result = self.rr("review", "--prepare")
+
+        self.assertEqual(code, 0, result)
+        spec, standards = (result["inputs"][axis] for axis in ("spec", "standards"))
+        self.assertEqual(spec, standards)
+        self.assertEqual((spec["base_sha"], spec["head_sha"]), (self.base, head))
+        self.assertEqual(spec["finding_ids"], [])
+        self.assertNotIn("findings_path", spec)
+        self.assertEqual(os.listdir(result["artifacts_dir"]), ["patch-1.diff"])
+        with open(spec["diff_path"], encoding="utf-8") as fh:
+            self.assertIn("+two", fh.read())
+        self.assertEqual(self.state(), before)
+
+    def test_prepare_review_uses_axis_coverage_and_scopes_open_findings(self):
+        reviewed = self.commit("a.txt", "two")
+        self.assertEqual(self.rr("set", f"head={reviewed}", f"review_target={self.base}")[0], 0)
+        self.assertEqual(self.review({"head": reviewed, "base": self.base, "verdict": "FINDINGS",
+                                      "findings": [self.finding()]})[0], 0)
+        head = self.commit("a.txt", "three")
+        self.assertEqual(self.worker(head)[0], 0)
+
+        code, result = self.rr("review", "--prepare")
+
+        self.assertEqual(code, 0, result)
+        spec, standards = (result["inputs"][axis] for axis in ("spec", "standards"))
+        self.assertEqual((spec["base_sha"], standards["base_sha"]), (reviewed, self.base))
+        self.assertNotEqual(spec["diff_path"], standards["diff_path"])
+        self.assertEqual(spec["finding_ids"], ["F1"])
+        with open(spec["findings_path"], encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh), {"findings.F1": self.state()["findings"]["F1"]})
+        self.assertNotIn("findings_path", standards)
+        code, result = self.rr("review", "--prepare", "--axis", "standards")
+        self.assertEqual(code, 0, result)
+        self.assertEqual(list(result["inputs"]), ["standards"])
+
+    def test_prepare_review_rejects_checkout_drift_before_creating_files(self):
+        self.assertEqual(self.rr("set", f"review_target={self.base}")[0], 0)
+        self.commit("a.txt", "two")
+        before = set(os.listdir(self.ledger))
+
+        code, result = self.rr("review", "--prepare")
+
+        self.assertEqual(code, 1, result)
+        self.assertIn("HEAD checkout", result)
+        self.assertEqual(set(os.listdir(self.ledger)), before)
+
     # init
 
     def test_init_creates_running_unverified_state_and_ignores_scratch(self):
