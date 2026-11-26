@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Репозиторий содержит переиспользуемые agent assets для Claude Code, OpenCode, ZCode, Codex, Qoder, Devin, Antigravity и Mistral Vibe.
+Репозиторий содержит переиспользуемые agent assets для Cursor, Claude Code, OpenCode, ZCode, Codex, Qoder, Devin, Antigravity и Mistral Vibe.
 
 ## Структура
 

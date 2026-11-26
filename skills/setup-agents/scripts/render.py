@@ -17,6 +17,7 @@ TARGETS = {
     "antigravity": ".gemini/config/plugins/serenity-agents/agents",
     "claude": ".claude/agents",
     "codex": ".codex/agents",
+    "cursor": ".cursor/agents",
     "devin": ".config/devin/agents",
     "opencode": ".config/opencode/agents",
     "qoder": ".qoder/agents",
@@ -103,6 +104,10 @@ def render(host, role, metadata, contract, model):
         lines += ["mainAgent: false", "subagent: true"]
         if read_only:
             lines += ["tools:", "  - view_file", "  - grep_search", "  - run_command"]
+    elif host == "cursor":
+        # readonly запрещает правки и state-changing shell; verifier пишет логи/build outputs.
+        if read_only and role != "verifier":
+            lines.append("readonly: true")
     elif host == "opencode":
         lines += ["mode: subagent", f"temperature: {temperature}", "permission:",
                   "  edit: " + ("deny" if read_only else "allow"), "  bash: allow", "  task: deny"]

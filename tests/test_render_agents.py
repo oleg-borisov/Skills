@@ -71,6 +71,7 @@ class RenderAgentsTest(unittest.TestCase):
         expected = {
             "antigravity": ("model: \"flash\"", "  - run_command", "mainAgent: false"),
             "claude": ("model: \"haiku\"", "  - Bash", "effort: medium"),
+            "cursor": ('model: "composer-2.5-fast"',),
             "devin": ("allowed-tools:", "  - exec"),
             "opencode": ("mode: subagent", "  edit: deny", "  task: deny"),
             "qoder": ("model: \"efficient\"", "temperature: 0.1", "  - Bash"),
@@ -86,6 +87,11 @@ class RenderAgentsTest(unittest.TestCase):
                     for field in fields:
                         self.assertIn(field, content)
                     self.assertNotIn("## Output", content)
+                    if host == "cursor":
+                        self.assertNotIn("readonly:", content)
+                        reviewer = (stage / "spec-reviewer.md").read_text("utf-8")
+                        self.assertIn("readonly: true", reviewer)
+                        self.assertNotIn("model:", reviewer)
                     if host == "qoder":
                         writer = (stage / "implementer.md").read_text("utf-8")
                         self.assertIn("disallowedTools:\n  - Agent", writer)

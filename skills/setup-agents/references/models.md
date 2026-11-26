@@ -1,6 +1,6 @@
 # Рекомендации по моделям
 
-Снимок на 2026-11-26. `render.py` читает таблицу как источник умолчаний для новой установки. ID моделей Codex перенесены из прежних профилей. Claude Code использует алиасы семейств, Qoder и Antigravity используют алиасы хоста. `inherit` оставляет выбор хосту. Для OpenCode и Vibe конкретный ID или алиас зависит от настроенного провайдера.
+Снимок на 2026-11-26. `render.py` читает таблицу как источник умолчаний для новой установки. ID моделей Codex перенесены из прежних профилей. Claude Code использует алиасы семейств, Qoder и Antigravity используют алиасы хоста. Cursor принимает `inherit` или конкретный model ID (опции в скобках, например `composer-2.5[fast=true]`). `inherit` оставляет выбор хосту. Для OpenCode и Vibe конкретный ID или алиас зависит от настроенного провайдера.
 
 | Хост | strong | cheap |
 | --- | --- | --- |
@@ -8,6 +8,7 @@
 | claude | `sonnet` | `haiku` |
 | qoder | `performance` | `efficient` |
 | antigravity | `pro` | `flash` |
+| cursor | `inherit` | `composer-2.5-fast` |
 | devin | `inherit` | `inherit` |
 | opencode | `inherit` | `inherit` |
 | vibe | `inherit` | `inherit` |

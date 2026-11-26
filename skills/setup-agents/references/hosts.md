@@ -5,6 +5,7 @@
 | Хост | Windows | macOS | Формат и ограничения |
 | --- | --- | --- | --- |
 | Codex | `~/.codex/agents` | `~/.codex/agents` | TOML, `model`, `model_reasoning_effort`, `sandbox_mode` read-only для reviewers, workspace-write для остальных. Verifier пишет логи и build outputs, исходники защищает контракт роли. |
+| Cursor | `~/.cursor/agents` | `~/.cursor/agents` | Markdown, `model` (`inherit` или ID; опции как `id[effort=high]`), `readonly: true` для reviewers без verifier. User-каталог читают editor и self-hosted workers; CLI и hosted Cloud Agents — только project `.cursor/agents/`. Также подхватывает `~/.claude/agents` как compat, но `.cursor/` имеет приоритет при конфликте имён. |
 | Claude Code | `~/.claude/agents` | `~/.claude/agents` | Markdown, `model`, `effort`, allowlist Read/Grep/Glob/Bash для read-only ролей, запрет Agent у остальных |
 | OpenCode | `~/.config/opencode/agents` | `~/.config/opencode/agents` | Markdown, `mode: subagent`, опциональный `model`, разрешён bash, `permission.edit` по роли, `task: deny` |
 | Devin | `%APPDATA%/devin/agents` | `~/.config/devin/agents` | Markdown, опциональный `model`, `allowed-tools: read, grep, glob, exec` для read-only ролей, вложенность ограничивает хост |
@@ -23,6 +24,7 @@ Allowlist файловых инструментов и поле sandbox зави
 - **Devin.** Custom subagents могут требовать включения экспериментальной функции. При отсутствии `model` выбор делает конфигурация Devin. [Документация Devin](https://docs.devin.ai/cli/subagents.md)
 - **Vibe.** Учитывается `VIBE_HOME`. Значение `active_model` должно существовать в конфигурации Vibe. После установки начни новую сессию или используй `/reload`. [Исходный код профилей Vibe](https://github.com/mistralai/mistral-vibe/blob/main/vibe/core/agents/models.py)
 - **Antigravity.** Plugin discovery ожидает обычные каталоги. Если нужен plugin со skill, подключи его по [инструкции для агента](../../../docs/hosts.md#что-проверить-в-существующих-окружениях). Запускай renderer из checkout, чтобы профили ссылались на канонический контракт. Из старого plugin убери прежнее генерируемое правило `rules/AGENTS.md` про обязательный `invoke_subagent` типа `self`, если оно осталось и целиком относится к старой установке. В новой сессии проверь доступность профилей. Встроенный тип для прямого вызова с контрактом — `self`. [Документация Antigravity](https://antigravity.google/docs/subagents?tab=cli)
+- **Cursor.** Ставь в пользовательский `~/.cursor/agents`, если нужен editor/self-hosted; для CLI и hosted Cloud Agents нужен project `.cursor/agents` — передай его через `--install-dir`. Старые симлинки заменяй обычными файлами. Начни новую сессию. [Документация Cursor](https://cursor.com/docs/subagents)
 - **Claude Code и OpenCode.** Старые профили, установленные как симлинки, заменяй обычными файлами. Начни новую сессию. [Claude Code](https://code.claude.com/docs/en/sub-agents) · [OpenCode](https://opencode.ai/docs/agents/)
 
 ## Разовая очистка OpenCode
