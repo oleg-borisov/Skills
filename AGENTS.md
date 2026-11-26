@@ -9,7 +9,6 @@
 | skills/spec-delivery/ | Primary skill для одной спецификации и графа задач. `references/` содержит протокол и фазы, `references/roles/` — контракты исполнителей, `scripts/rr.py` — CLI ledger. |
 | skills/setup-agents/ | Установка именованных профилей ролей. `scripts/render.py` готовит файлы во временном каталоге `.tmp/`. |
 | skills/tdd/, skills/wait-what-ru/ | Локальный TDD skill и вспомогательный user-invoked skill. |
-| command/ | Slash-command adapter spec-delivery для Claude Code и OpenCode. |
 | tests/ | unittest для `rr.py` и `render.py`. |
 | docs/adr/, docs/validation/ | Решения и прогоны контрактов. Установка и её проверка — в [docs/hosts.md](docs/hosts.md). |
 

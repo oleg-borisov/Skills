@@ -2,9 +2,12 @@
 
 Переиспользуемые agent assets для Claude Code, OpenCode, Codex, ZCode, Qoder, Devin, Antigravity и Mistral Vibe.
 
-- единый primary workflow `/spec-delivery` или `$spec-delivery`;
+- единый primary workflow `spec-delivery`;
 - контракты implementer, verifier, standards-reviewer, spec-reviewer, reviser и опционального scout в `skills/spec-delivery/references/roles/`;
-- `/setup-agents` или `$setup-agents` для установки именованных профилей, локальный `tdd` и вспомогательный `wait-what-ru`.
+- `setup-agents` для установки именованных профилей, локальный `tdd` и вспомогательный `wait-what-ru`.
+
+В Claude Code используй `/spec-delivery`, в Codex — `$spec-delivery`, в OpenCode —
+`@spec-delivery`. [Claude Code](https://code.claude.com/docs/en/skills) · [OpenCode](https://opencode.ai/docs/skills)
 
 `spec-delivery` реализует одну спецификацию в текущем checkout. Готовые задачи графа
 выполняются в отдельных worktree и собираются на integration-ветке. Параллелизм
