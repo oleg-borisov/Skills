@@ -23,11 +23,19 @@ Spec обязателен для требований; Standards NOT_APPLICABLE 
 
 Если требуется `--file` для передачи результата CLI, используй возвращённый `artifacts_dir`. После приёма результатов и выхода всех использующих эти файлы reviewers удали этот временный каталог. При прерывании он восстанавливается через `--prepare` после сверки живых исполнителей.
 
+### Продолжение исполнителей
+
+В повторных раундах Review → Triage → Revise предпочитай продолжение последней сессии каждой роли (`spec-reviewer`, `standards-reviewer`, `reviser`). Используй механизм хоста, который начинает новый turn в той же сессии с сохранённой историей. Прими предыдущий handoff и подтверди завершение turn перед продолжением. Перед запуском reviser дождись также выхода предыдущего writer и его subprocesses.
+
+Продолжай в пределах того же запуска, роли и checkout при неизменных `review_target`, требованиях, применимых standards и контракте роли. Новый HEAD должен быть потомком предыдущего кандидата в этом цикле. При входе в Verify перестань использовать эти сессии для новых раундов. Если условия изменились, сессия недоступна или хост не поддерживает продолжение с нужной параллельностью, используй свежего исполнителя по протоколу. При неизвестном исходе вызова или liveness сначала примени [Recovery](recovery.md).
+
+На новый turn передай актуальные входы роли, включая `{base_sha,head_sha}`, пути из текущего `review --prepare` для reviewer и текущие IDs замечаний. Укажи, что входы и directives этого turn заменяют прежние. Прими новый handoff обычной командой CLI.
+
 ### Приём результатов
 
 JSON каждого reviewer — один `ledger.py review` с `--ids` переданных ему IDs. Отказ CLI (чужой HEAD, BLOCKED_CONTEXT, нет explicit FIXED|OPEN заданных IDs) → HUMAN_ATTENTION без coverage. Severity назначает CLI: wrong → BLOCKER; missing/partial/hard → MAJOR; judgement и delta `scope: outside`, кроме wrong → MINOR. Finding с пометкой docs_only понижай до MINOR одним `ledger.py finding severity <IDs> MINOR`, если документ не назван criterion spec и не является agent instructions/executable example/config. Дубль OPEN-записи той же оси закрывай `ledger.py finding close <ID> "дубль <ID>"`. После приёма всех ожидаемых результатов раунда и этих правок severity/дублей, если остаются OPEN findings, получи лимиты через `ledger.py review --ledger <dir> --triage`. После repair Spec delta нужен всегда; Standards delta — только при OPEN IDs оси, иначе непокрытый диапазон Standards закрывает одно покрывающее Standards review финального HEAD перед Verify. Full-spec (`--full-spec`) фиксирует full_spec_reviewed_head; последующие delta оценивают влияние на всё покрытие, неясность → full-spec.
 
-- Critical BLOCKER/MAJOR → fresh reviser. Попутно дешёвые MINOR к коду: один файл, до 20 LOC, без API/schema/test-architecture/research.
+- Critical BLOCKER/MAJOR → reviser по правилам продолжения выше. Попутно дешёвые MINOR к коду: один файл, до 20 LOC, без API/schema/test-architecture/research.
 - Остальные MINOR и все docs MINOR — FIX_NOW batch после закрытия critical: один reviser, одно delta Review dispositions; повторяй, пока есть OPEN MINOR и CLI не вернул `minor_limit`. `minor_limit` либо MINOR >3 файлов/>100 LOC/меняющий test architecture → `ledger.py finding leave <IDs>`: оставленные замечания идут в итог запуска без остановки.
 - Critical rejected worker'ом, конфликт spec/standards либо `stop` в ответе CLI (critical без прогресса, предел critical-итераций) → HUMAN_ATTENTION. Лимит critical findings не закрывает; отказ человека исправлять critical → STOPPED_BY_HUMAN.
 
